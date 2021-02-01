@@ -20,34 +20,24 @@ import matplotlib.pyplot as plt
 import inspect
 import traceback
 
+sys.path.append(r"C:\Program Files\Thorlabs\Kinesis")
+# Add references so Python can see .Net
+clr.AddReference("System")
+clr.AddReference("Thorlabs.MotionControl.DeviceManagerCLI")
+clr.AddReference("Thorlabs.MotionControl.Benchtop.PiezoCLI")
+clr.AddReference("Thorlabs.MotionControl.GenericPiezoCLI")
+clr.AddReference("Thorlabs.MotionControl.TCube.InertialMotorCLI")
+clr.AddReference("Thorlabs.MotionControl.Controls")
 from System import String
 from System import Decimal
 import System.Collections
 from System.Collections import *
 # for Attocube
 # from pyanc350 import PyANC350v4
-
-
-# constants
-sys.path.append(r"C:\Program Files\Thorlabs\Kinesis")
-# needs local Kinesis folder, but maybe it is possible to automatically
-# find it
-# add .net reference and import so python can see .net
-clr.AddReference("Thorlabs.MotionControl.Controls")
 import Thorlabs.MotionControl.Controls
-
-
-# Add references so Python can see .Net
-clr.AddReference("Thorlabs.MotionControl.DeviceManagerCLI")
-clr.AddReference("Thorlabs.MotionControl.Benchtop.PiezoCLI")
-clr.AddReference("Thorlabs.MotionControl.GenericPiezoCLI")
-
-
 from Thorlabs.MotionControl.DeviceManagerCLI import *
 from Thorlabs.MotionControl.Benchtop.PiezoCLI import *
-
-
-# add this, see examples from kinesis
+from Thorlabs.MotionControl.TCube.InertialMotorCLI import *
 from Thorlabs.MotionControl.GenericPiezoCLI import *
 # print(dir(Thorlabs.MotionControl.DeviceManagerCLI))
 # print(dir(Thorlabs.MotionControl.Benchtop.PiezoCLI))
@@ -171,9 +161,9 @@ class Piezo3Axis():
                     # do something
                     time.sleep(0.5)
                     print(self.channel_x.GetPosition())
-           self.move_to(origin0, origin1, None)
-           self.update_position()
-       if axis == 'yz':
+            self.move_to(origin0, origin1, None)
+            self.update_position()
+        if axis == 'yz':
            Range0 = np.arange(0, rg0, self.step_y)
            Range1 = np.arange(0, rg1, self.step_z)
            start_y = self.pos_y - (rg0/2)
@@ -187,7 +177,7 @@ class Piezo3Axis():
                    time.sleep(0.5)
            self.move_to(None, origin0, origin1)
            self.update_position()
-       if axis == 'xz':
+        if axis == 'xz':
            Range0 = np.arange(0, rg0, self.step_x)
            Range1 = np.arange(0, rg1, self.step_z)
            start_x = self.pos_x - (rg0/2)
@@ -201,7 +191,7 @@ class Piezo3Axis():
                    time.sleep(0.5)
            self.move_to(origin0, None, origin1)
            self.update_position()
-class PiezoScrew:
+class PiezoTIM101:
     def __init__(self, serial: str = None):
         """Instantiates a PiezoScrew object to control piezo mirror screws
 
@@ -210,25 +200,175 @@ class PiezoScrew:
         :rtype: PiezoScrew
 
         """
-        try:
-            self.serial = serial  # SN of the Thorlabs Nano stage
-            Thorlabs.MotionControl.Benchtop.PiezoCLI.BenchtopPiezo.ConnectDevice
-            self.device = BenchtopPiezo.CreateBenchtopPiezo(serial)
-            device_list_result = DeviceManagerCLI.BuildDeviceList()
-            self.device.Connect(serial)
-            deviceInfo = [self.device.GetDeviceInfo()]
-            self.device_info = deviceInfo
-            self.device.EnableCommsListener
-            self.channel = self.device.GetChannel('1')
-            self.pos = float(str(self.channel.GetPosition()))
-            # the GetJogSteps method returns Thorlabs.MotionControl.GenericPiezoCLI.Settings.ControlSettings object.
-            # Need to the retrieve the PositionStepSize attribute to get a number
-            self.step = float(str(self.channel.GetJogSteps().PositionStepSize))
-            print('Device initialization successful !')
-            for info in deviceInfo:
-                print('Device name : ',info.Name, '/  Serial Number : ', info.SerialNumber)
-            print('Number of channels : ',self.device.ChannelCount)
-            print(f"Device position : x = {self.pos_x} µm")
-        except Exception:
-            print('Could not connect with the device ... Have you checked that it is not already used by another program ?')
-            print(traceback.format_exc())
+        if serial is not None:
+            try:
+                self.serial = serial  # SN of the Thorlabs Nano stage
+                DeviceManagerCLI.BuildDeviceList()
+                device_list = DeviceManagerCLI.GetDeviceList(TCubeInertialMotor.DevicePrefix)
+                if len(device_list) == 0:
+                    print("Error : No TCube motor found !")
+                else :
+                    if serial in device_list:
+                        try:
+                            self.device = TCubeInertialMotor.CreateTCubeInertialMotor(self.serial)
+                            self.device.Connect(self.serial)
+                            timeout = 0
+                            while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
+                                self.device.WaitForSettingsInitialized(500)
+                                timeout+=1
+                            self.device.StartPolling(250)
+                            time.sleep(0.5)
+                            self.device.EnableDevice()
+                            self.device_info = self.device.GetDeviceInfo()
+                            print("Success ! Connected to TCube motor" +
+                                  f" {self.device_info.SerialNumber}" +
+                                  f" {self.device_info.Name}")
+                        except Exception:
+                            print("ERROR : Could not connect to the device")
+                            print(traceback.format_exc())
+                    else:
+                        print("Error : Did not find the specified motor ")
+                        for dev in device_list:
+                            print(f"Device found, serial {dev}")
+            except Exception:
+                print("ERROR")
+                print(traceback.format_exc())
+        else:
+            try:
+                DeviceManagerCLI.BuildDeviceList()
+                device_list = DeviceManagerCLI.GetDeviceList(TCubeInertialMotor.DevicePrefix)
+                if len(device_list) == 0:
+                    print("Error : No TCube motor found !")
+                else :
+                    for counter, dev in enumerate(device_list):
+                        print(f"Device found, serial {dev} ({counter})")
+                    choice = input("Choice (number between 0 and" + 
+                                   f" {len(device_list)-1})? ")
+                    choice = float(choice)
+                    self.serial = device_list[choice] 
+                    try :
+                        self.device = TCubeInertialMotor.CreateTCubeInertialMotor(self.serial)
+                        self.device.Connect(self.serial)
+                        timeout = 0
+                        while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
+                            self.device.WaitForSettingsInitialized(500)
+                            timeout+=1
+                        self.device.StartPolling(250)
+                        time.sleep(0.5)
+                        self.device.EnableDevice()
+                        self.device_info = self.device.GetDeviceInfo()
+                        print("Success ! Connected to TCube motor" +
+                              f" {self.device_info.SerialNumber}" +
+                              f" {self.device_info.Name}")
+                    except Exception:
+                        print("ERROR : Could not connect to the device")
+                        print(traceback.format_exc())
+            except Exception:
+                print("ERROR")
+                print(traceback.format_exc())
+        self.configuration = self.device.GetInertialMotorConfiguration(self.serial)
+        self.settings =  ThorlabsInertialMotorSettings.GetSettings(self.configuration)
+        self.channel1 = InertialMotorStatus.MotorChannels.Channel1
+        self.channel2 = InertialMotorStatus.MotorChannels.Channel2
+        self.channel3 = InertialMotorStatus.MotorChannels.Channel3
+        self.channel4 = InertialMotorStatus.MotorChannels.Channel4
+        #set default settings StepRate and StepAcceleration
+        self.settings.Drive.Channel(self.channel1).StepRate = 500
+        self.settings.Drive.Channel(self.channel1).StepAcceleration = 100000
+        self.settings.Drive.Channel(self.channel2).StepRate = 500
+        self.settings.Drive.Channel(self.channel2).StepAcceleration = 100000
+        self.settings.Drive.Channel(self.channel3).StepRate = 500
+        self.settings.Drive.Channel(self.channel3).StepAcceleration = 100000
+        self.settings.Drive.Channel(self.channel4).StepRate = 500
+        self.settings.Drive.Channel(self.channel4).StepAcceleration = 100000
+        self.device.SetSettings(self.settings, True, True)
+    def get_steprate(self, channel: int = 1):
+        if channel not in [1, 2, 3, 4]:
+            print("Error : Channel number must be between 1 and 4")
+        else :
+            self.settings =  ThorlabsInertialMotorSettings.GetSettings(self.configuration)
+            if channel == 1:
+                return self.settings.Drive.Channel(self.channel1).StepRate
+            elif channel == 2:
+                return self.settings.Drive.Channel(self.channel2).StepRate
+            elif channel == 3:
+                return self.settings.Drive.Channel(self.channel3).StepRate
+            elif channel == 4:
+                return self.settings.Drive.Channel(self.channel4).StepRate
+    
+    def get_stepaccel(self, channel: int = 1):
+        if channel not in [1, 2, 3, 4]:
+            print("Error : Channel number must be between 1 and 4")
+        else :
+            self.settings =  ThorlabsInertialMotorSettings.GetSettings(self.configuration)
+            if channel == 1:
+                return self.settings.Drive.Channel(self.channel1).StepAcceleration
+            elif channel == 2:
+                return self.settings.Drive.Channel(self.channel2).StepAcceleration
+            elif channel == 3:
+                return self.settings.Drive.Channel(self.channe13).StepAcceleration
+            elif channel == 4:
+                return self.settings.Drive.Channel(self.channel4).StepAcceleration
+        
+    def set_steprate(self, channel: int = 1, steprate: int = 500):
+        if channel not in [1, 2, 3, 4]:
+            print("Error : Channel number must be between 1 and 4")
+        else :
+            self.settings =  ThorlabsInertialMotorSettings.GetSettings(self.configuration)
+            if channel == 1:
+                self.settings.Drive.Channel(self.channel1).StepRate = steprate
+            elif channel == 2:
+                self.settings.Drive.Channel(self.channel2).StepRate = steprate
+            elif channel == 3:
+                self.settings.Drive.Channel(self.channel3).StepRate = steprate
+            elif channel == 4:
+                self.settings.Drive.Channel(self.channel4).StepRate = steprate
+            self.device.SetSettings(self.settings, True, True)
+                    
+    def set_stepaccel(self, channel: int = 1, stepaccel: int = 100000):
+        if channel not in [1, 2, 3, 4]:
+            print("Error : Channel number must be between 1 and 4")
+        else :
+            self.settings =  ThorlabsInertialMotorSettings.GetSettings(self.configuration)
+            if channel == 1:
+                self.settings.Drive.Channel(self.channel1).StepAcceleration = stepaccel
+            elif channel == 2:
+                self.settings.Drive.Channel(self.channel2).StepAcceleration = stepaccel
+            elif channel == 3:
+                self.settings.Drive.Channel(self.channel3).StepAcceleration = stepaccel
+            elif channel == 4:
+                self.settings.Drive.Channel(self.channel4).StepAcceleration = stepaccel
+            self.device.SetSettings(self.settings, True, True)
+                        
+    def zero(self, channel: int = 1):
+        if channel not in [1, 2, 3, 4]:
+            print("Error : Channel number must be between 1 and 4")
+        else :
+            if channel == 1:
+                self.device.SetPositionAs(self.channel1, 0)
+            elif channel == 2:
+                self.device.SetPositionAs(self.channel2, 0)
+            elif channel == 3:
+                self.device.SetPositionAs(self.channel3, 0)
+            elif channel == 4:
+                self.device.SetPositionAs(self.channel4, 0)
+    
+    def move(self, channel: int = 1, pos: int = 0):
+        if channel not in [1, 2, 3, 4]:
+            print("Error : Channel number must be between 1 and 4")
+        else :
+            try:
+                if channel == 1:
+                    self.device.MoveTo(self.channel1, pos, 60000)
+                elif channel == 2:
+                    self.device.MoveTo(self.channel2, pos, 60000)
+                elif channel == 3:
+                    self.device.MoveTo(self.channel3, pos, 60000)
+                elif channel == 4:
+                    self.device.MoveTo(self.channel4, pos, 60000)
+            except Exception:
+                print("ERROR : Failed to move")
+                print(traceback.format_exc())
+    def disconnect(self):
+        self.device.StopPolling()
+        self.device.Disconnect(True)
