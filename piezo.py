@@ -9,6 +9,10 @@
     Or uses the DAISY DLL's to control Attocube stage
     https://github.com/Laukei/attocube-ANC350-Python-library
 
+    The classes volontarily copy and wrap existing objects of Thorlabs
+    .NET architecture to simplify it and bring useful objects to the
+    relevant level in the inheritance tree.
+
 """
 
 import clr
@@ -20,6 +24,7 @@ import matplotlib.pyplot as plt
 import inspect
 import traceback
 
+# VERY NAUGHTY : TO BE FIXED !!!!
 sys.path.append(r"C:\Program Files\Thorlabs\Kinesis")
 # Add references so Python can see .Net
 clr.AddReference("System")
@@ -39,22 +44,14 @@ from Thorlabs.MotionControl.DeviceManagerCLI import *
 from Thorlabs.MotionControl.Benchtop.PiezoCLI import *
 from Thorlabs.MotionControl.TCube.InertialMotorCLI import *
 from Thorlabs.MotionControl.GenericPiezoCLI import *
-# print(dir(Thorlabs.MotionControl.DeviceManagerCLI))
-# print(dir(Thorlabs.MotionControl.Benchtop.PiezoCLI))
-# print(dir(Thorlabs.MotionControl.Benchtop.PiezoCLI.PiezoChannel))
-# print(dir(Thorlabs.MotionControl.Benchtop.PiezoCLI.BenchtopPiezo))
-# print(dir(Thorlabs.MotionControl.Benchtop.PiezoCLI.BenchtopPiezoConfiguration))
-
-# thorlabs nanostage serial numbers of each axis '71897085-1' to -3
 
 
-# print(Thorlabs.MotionControl.GenericPiezoCLI.__doc__)
-
-
-# Main Piezo class that contains device infos, and basic movement routines for Thorlabs stage
 class Piezo3Axis():
-    # initializes contact with the device
-    def __init__(self, serial):
+    def __init__(self, serial: float = None):
+        """
+        Instantiantes the piezo object
+        :param serial: Thorlabs/ Attocube serial number
+        """
         try:
             self.serial = serial  # SN of the Thorlabs Nano stage
             Thorlabs.MotionControl.Benchtop.PiezoCLI.BenchtopPiezo.ConnectDevice
@@ -84,18 +81,32 @@ class Piezo3Axis():
             print('Could not connect with the device ... Have you checked that it is not already used by another program ?')
             print(traceback.format_exc())
 
-    def get_position(self):
+    def get_position(self) -> float:
+        """
+        Gets the actual position of the piezo
+        :return: (pos_x, pos_y, pos_z) a tuple of floats
+        """
         self.pos_x = float(str(self.channel_x.GetPosition()))
         self.pos_y = float(str(self.channel_y.GetPosition()))
         self.pos_z = float(str(self.channel_z.GetPosition()))
         return self.pos_x, self.pos_y, self.pos_z
 
     def update_position(self):
+        """
+        Updates the position saved in the piezo object
+        :return: None
+        """
         self.pos_x, self.pos_y, self.pos_z = self.get_position() #need to find a way to actualize the position kept in
                                                                  #the python class regularly
 
-    # simple move method : move to an arbitrary point
-    def move_to(self, tgt_x, tgt_y, tgt_z):
+    def move_to(self, tgt_x: float, tgt_y: float, tgt_z: float):
+        """
+        Moves the piezo to an arbitrary position
+        :param tgt_x: x target position
+        :param tgt_y: y target position
+        :param tgt_z: z target position
+        :return: None
+        """
         self.update_position()
         # check if each argument is null, so that you don't need to specify each
         # argument if you want to move only one axis
@@ -108,7 +119,13 @@ class Piezo3Axis():
             self.channel_z.SetPosition(Decimal(tgt_z))
         self.update_position()
 
-    def sweep(self, axis, rg):
+    def sweep(self, axis: str = 'x', rg: float = 1.0):
+        """
+        Does a 1D sweep along one axis
+        :param axis: 'x', 'y' or 'z' the axis of the sweep
+        :param rg: range of the sweep
+        :return: None
+        """
         # method to sweep over a range rg on the axis 'x', 'y', or 'z' from the starting position
         # actualize position if ever it has not been done before
         self.update_position()
@@ -144,6 +161,13 @@ class Piezo3Axis():
             self.update_position()
 
     def sweep_2D(self, axis, rg0, rg1):
+        """
+        2D sweep
+        :param axis: 'xy', 'yz' or 'xz' the plane in which the sweep is done
+        :param rg0: Range along first axis
+        :param rg1: Range along second axis
+        :return: None
+        """
         self.update_position()
         # method to sweep a surface (xy,yz, or xz) over a range rg0 on the
         # first axis and rg1 on the other
@@ -192,6 +216,7 @@ class Piezo3Axis():
            self.move_to(origin0, None, origin1)
            self.update_position()
 class PiezoTIM101:
+
     def __init__(self, serial: str = None):
         """Instantiates a PiezoScrew object to control piezo mirror screws
 
@@ -282,7 +307,13 @@ class PiezoTIM101:
         self.settings.Drive.Channel(self.channel4).StepRate = 500
         self.settings.Drive.Channel(self.channel4).StepAcceleration = 100000
         self.device.SetSettings(self.settings, True, True)
-    def get_steprate(self, channel: int = 1):
+
+    def get_steprate(self, channel: int = 1) -> float:
+        """
+        Wrapper function to get the step rate of a channel in Hz
+        :param channel: Channel number
+        :return: steprate
+        """
         if channel not in [1, 2, 3, 4]:
             print("Error : Channel number must be between 1 and 4")
         else :
@@ -296,7 +327,12 @@ class PiezoTIM101:
             elif channel == 4:
                 return self.settings.Drive.Channel(self.channel4).StepRate
     
-    def get_stepaccel(self, channel: int = 1):
+    def get_stepaccel(self, channel: int = 1) -> float:
+        """
+        Wrapper function to get the step acceleration in Hz^2
+        :param channel: channel number
+        :return: None
+        """
         if channel not in [1, 2, 3, 4]:
             print("Error : Channel number must be between 1 and 4")
         else :
@@ -311,6 +347,12 @@ class PiezoTIM101:
                 return self.settings.Drive.Channel(self.channel4).StepAcceleration
         
     def set_steprate(self, channel: int = 1, steprate: int = 500):
+        """
+        Sets the step rate
+        :param channel: Channel number
+        :param steprate: Step rate in Hz
+        :return: None
+        """
         if channel not in [1, 2, 3, 4]:
             print("Error : Channel number must be between 1 and 4")
         else :
@@ -326,6 +368,12 @@ class PiezoTIM101:
             self.device.SetSettings(self.settings, True, True)
                     
     def set_stepaccel(self, channel: int = 1, stepaccel: int = 100000):
+        """
+        Sets the step acceleration
+        :param channel: Channel number
+        :param stepaccel: Step acceleration in Hz^2
+        :return: None
+        """
         if channel not in [1, 2, 3, 4]:
             print("Error : Channel number must be between 1 and 4")
         else :
@@ -341,6 +389,11 @@ class PiezoTIM101:
             self.device.SetSettings(self.settings, True, True)
                         
     def zero(self, channel: int = 1):
+        """
+        Zeros the piezo's position at its current position
+        :param channel: Channel number
+        :return: None
+        """
         if channel not in [1, 2, 3, 4]:
             print("Error : Channel number must be between 1 and 4")
         else :
@@ -353,12 +406,19 @@ class PiezoTIM101:
             elif channel == 4:
                 self.device.SetPositionAs(self.channel4, 0)
     
-    def move(self, channel: int = 1, pos: int = 0):
+    def move_to(self, channel: int = 1, pos: int = 0):
+        """
+        Moves the piezo to a specified position
+        :param channel: Channel number
+        :param pos: Position (int)
+        :return: None
+        """
         if channel not in [1, 2, 3, 4]:
             print("Error : Channel number must be between 1 and 4")
         else :
             try:
                 if channel == 1:
+                    #60000 must be some kind of timeout, need to find neater way of getting "has moved" signal
                     self.device.MoveTo(self.channel1, pos, 60000)
                 elif channel == 2:
                     self.device.MoveTo(self.channel2, pos, 60000)
@@ -369,6 +429,12 @@ class PiezoTIM101:
             except Exception:
                 print("ERROR : Failed to move")
                 print(traceback.format_exc())
+
     def disconnect(self):
+        """
+        Wrapper function to disconnect the object. Important for tidyness and to avoid conflicts with
+        Kinesis
+        :return: None
+        """
         self.device.StopPolling()
         self.device.Disconnect(True)
