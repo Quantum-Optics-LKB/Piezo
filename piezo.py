@@ -1,16 +1,16 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Fri Mar 29 11:00:03 2019
-
-@author: tangui
-"""
 
 """
-Uses Kinesis to control Thorlabs piezo stage in XYZ configuration
-Or uses the DAISY DLL's to control Attocube stage
-https://github.com/Laukei/attocube-ANC350-Python-library
+    Created on Fri Mar 29 11:00:03 2019
+
+    @author: tangui
+
+    Uses Kinesis to control Thorlabs piezo stage in XYZ configuration
+    Or uses the DAISY DLL's to control Attocube stage
+    https://github.com/Laukei/attocube-ANC350-Python-library
+
 """
+
 import clr
 import sys
 import os
@@ -24,8 +24,8 @@ from System import String
 from System import Decimal
 import System.Collections
 from System.Collections import *
-#for Attocube
-#from pyanc350 import PyANC350v4
+# for Attocube
+# from pyanc350 import PyANC350v4
 
 
 # constants
