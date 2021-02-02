@@ -20,8 +20,6 @@ import sys
 import os
 import time
 import numpy as np
-import matplotlib.pyplot as plt
-import inspect
 import traceback
 
 # VERY NAUGHTY : TO BE FIXED !!!!
@@ -267,10 +265,10 @@ class PiezoTIM101:
                 else :
                     for counter, dev in enumerate(device_list):
                         print(f"Device found, serial {dev} ({counter})")
-                    choice = input("Choice (number between 0 and" + 
+                    choice = input("Choice (number between 0 and" +
                                    f" {len(device_list)-1})? ")
                     choice = float(choice)
-                    self.serial = device_list[choice] 
+                    self.serial = device_list[choice]
                     try :
                         self.device = TCubeInertialMotor.CreateTCubeInertialMotor(self.serial)
                         self.device.Connect(self.serial)
@@ -326,7 +324,7 @@ class PiezoTIM101:
                 return self.settings.Drive.Channel(self.channel3).StepRate
             elif channel == 4:
                 return self.settings.Drive.Channel(self.channel4).StepRate
-    
+
     def get_stepaccel(self, channel: int = 1) -> float:
         """
         Wrapper function to get the step acceleration in Hz^2
@@ -345,7 +343,7 @@ class PiezoTIM101:
                 return self.settings.Drive.Channel(self.channe13).StepAcceleration
             elif channel == 4:
                 return self.settings.Drive.Channel(self.channel4).StepAcceleration
-        
+
     def set_steprate(self, channel: int = 1, steprate: int = 500):
         """
         Sets the step rate
@@ -366,7 +364,7 @@ class PiezoTIM101:
             elif channel == 4:
                 self.settings.Drive.Channel(self.channel4).StepRate = steprate
             self.device.SetSettings(self.settings, True, True)
-                    
+
     def set_stepaccel(self, channel: int = 1, stepaccel: int = 100000):
         """
         Sets the step acceleration
@@ -387,7 +385,7 @@ class PiezoTIM101:
             elif channel == 4:
                 self.settings.Drive.Channel(self.channel4).StepAcceleration = stepaccel
             self.device.SetSettings(self.settings, True, True)
-                        
+
     def zero(self, channel: int = 1):
         """
         Zeros the piezo's position at its current position
@@ -405,7 +403,7 @@ class PiezoTIM101:
                 self.device.SetPositionAs(self.channel3, 0)
             elif channel == 4:
                 self.device.SetPositionAs(self.channel4, 0)
-    
+
     def move_to(self, channel: int = 1, pos: int = 0):
         """
         Moves the piezo to a specified position
