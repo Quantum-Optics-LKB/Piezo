@@ -7,15 +7,32 @@ Created on Mon Feb  1 11:01:54 2021
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 from ScopeInterface import USBScope, USBSpectrumAnalyzer
 from piezo import PiezoTIM101
+import EasyPySpin
 import cv2
+import sys
+import os
 
+plt.switch_backend('Qt5Agg')
+plt.ion()
+
+def mypause(interval):
+    backend = plt.rcParams['backend']
+    if backend in matplotlib.rcsetup.interactive_bk:
+        figManager = matplotlib._pylab_helpers.Gcf.get_active()
+        if figManager is not None:
+            canvas = figManager.canvas
+            if canvas.figure.stale:
+                canvas.draw()
+            canvas.start_event_loop(interval)
+            return
 
 class Homodyne:
 
     def __init__(self, piezo: PiezoTIM101, specAn: USBSpectrumAnalyzer,
-                 scope: USBScope, cam):
+                 scope: USBScope, cam: EasyPySpin.VideoCapture):
         """Instantiates the homodyne setup with a piezo to move the LO angle,
         a spectrum analyzer, an oscilloscope and a camera.
 
@@ -33,7 +50,7 @@ class Homodyne:
         self.scope = scope
         self.cam = cam
 
-    def calib_fringes(self, channel: int = 1, start: int = 0,
+    def calib_fringes(self, channel: int = 1, start: int = 100,
                       stop: int = 10000, steps: int = 200,
                       pxpitch: float = 5.5e-6) -> np.ndarray:
         """Function to calibrate the k values accessed by the local oscillator
@@ -53,52 +70,55 @@ class Homodyne:
         kx = np.fft.fftfreq(w, pxpitch)
         ky = np.fft.fftfreq(h, pxpitch)
         ret = False
-        counter = 0
-        while not(ret) and counter < 10:
+        tries = 0
+        while ret == False and tries < 10:
             ret, frame_calib = self.cam.read()
-            counter += 1
-        if not(ret):
+            tries += 1
+        if ret == False:
             print("ERROR : Could not grab frame")
             sys.exit()
-        plt.imshow(frame_calib, cmap="gray")
-        plt.title("Calibration picture : should be 0 fringes")
+        fig0, ax = plt.subplots(1, 1)
+        ax.imshow(frame_calib, cmap="gray")
+        ax.set_title("Calibration picture : should be 0 fringes")
         plt.show(block=False)
         pos_range = np.linspace(start, stop, steps)
         positions = np.empty(pos_range.shape)
-        frames = np.empty((h, w, len(pos_range))
-        frames_fft = np.empty((h, w, len(pos_range))
-        fig = plt.figure(0)
-        ax0 = fig.add_subplot(121)
-        ax1 = fig.add_subplot(122)
+        frames = np.empty((h, w, len(pos_range)))
+        frames_fft = np.empty((h, w, len(pos_range)), dtype=np.complex)
+        fig, (ax0, ax1) = plt.subplots(1, 2, sharex=False, sharey=False)
         ax0.set_title("Image")
         ax1.set_title("Fourier transform")
-        im0 = ax.imshow(np.ones((frames.shape[0], frames.shape[1]),
-                        cmap="gray")
-        im1 = ax.imshow(np.ones((frames.shape[0], frames.shape[1]))
+        im0 = ax0.imshow(np.ones((frames.shape[0], frames.shape[1])),
+                    cmap="gray", vmin=0, vmax=255)
+        im1 = ax1.imshow(np.ones((frames.shape[0], frames.shape[1])),
+                         extent=[np.min(kx)*1e-6, np.max(kx)*1e-6,
+                                 np.min(ky)*1e-6, np.max(ky)*1e-6],
+                         vmin=4,
+                         vmax=17)
         ax1.set_xlabel("$k_x$ in $\\mu m^{-1}$")
         ax1.set_ylabel("$k_y$ in $\\mu m^{-1}$")
-        ax1.set_xticks(kx*1e-6)
-        ax1.set_yticks(ky*1e-6)
         # jogs along the specified range
         for counter, pos in enumerate(pos_range):
             positions[counter] = self.piezo.move_to(channel, pos)
             ret = False
-            counter = 0
-            while not(ret) and counter < 10:
+            tries = 0
+            while ret == False and tries < 10:
                 ret, frames[:, :, counter] = self.cam.read()
-                counter += 1
-            if not(ret):
+                tries += 1
+            if ret == False:
                 print("ERROR : Could not grab frame")
                 sys.exit()
-            frames_fft[:, :, counter] = np.fft.fftshift(
+            frames_fft[: , :, counter] = np.fft.fftshift(
                                             np.fft.fft2(frames[:, :, counter]))
-            im0.set_data(frames[:, :, counter])
-            im1.set_data(frames_fft[:, :, counter])
-            fig.suptitle(f"Grabbed frame {counter+1}/{len(pos_range)}")
-            fig.canvas.draw()
+            if (counter+1)%20==0:
+                im0.set_data(frames[:, :, counter])
+                im1.set_data(np.log(np.abs(frames_fft[:, :, counter])))
+                fig.suptitle(f"Grabbed frame {counter+1}/{len(pos_range)}")
+                mypause(0.5)
+                fig.canvas.draw()
         plt.show(block=False)
         # returns piezo to original position
-        self.piezo.move_to(channel, start)
+        self.piezo.move_to(channel, 0)
         # captures image to check the angle
         ret = False
         counter = 0
@@ -108,7 +128,7 @@ class Homodyne:
         if not(ret):
             print("ERROR : Could not grab frame")
             sys.exit()
-        plt.imshow(frame_return, cmap="gray")
-        plt.title("Back to the start : should be 0 fringes")
-        plt.show(block=False)
-        return frames, frames_fft
+        # ax.imshow(frame_return, cmap="gray")
+        # ax.set_title("Back to the start : should be 0 fringes")
+        # plt.show()
+        return frames, positions
