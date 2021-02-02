@@ -111,3 +111,4 @@ class Homodyne:
         plt.imshow(frame_return, cmap="gray")
         plt.title("Back to the start : should be 0 fringes")
         plt.show(block=False)
+        return frames, frames_fft
