@@ -416,8 +416,16 @@ class PiezoTIM101:
         if channel not in [1, 2, 3, 4]:
             print("Error : Channel number must be between 1 and 4")
         else:
-            pass
-        # TODO
+            if channel == 1:
+                pos = self.device.GetPosition(self.channel1)
+            elif channel == 2:
+                pos = self.device.GetPosition(self.channel2)
+            elif channel == 3:
+                pos = self.device.GetPosition(self.channel3)
+            elif channel == 4:
+                pos = self.device.GetPosition(self.channel4)
+            return pos
+           
 
     def move_to(self, channel: int = 1, pos: int = 0) -> int:
         """
