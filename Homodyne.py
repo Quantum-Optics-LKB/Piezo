@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from ScopeInterface import USBScope, USBSpectrumAnalyzer
 from piezo import PiezoTIM101
+import cv2
 
 
 class Homodyne:
@@ -33,7 +34,7 @@ class Homodyne:
         self.cam = cam
 
     def calib_fringes(self, channel: int = 1, start: int = 0,
-                      stop: int = 10000) -> np.ndarray:
+                      stop: int = 10000, steps: int = 200) -> np.ndarray:
         """Function to calibrate the k values accessed by the local oscillator
 
         :param PiezoTIM101 piezo: piezo to actuate
@@ -44,11 +45,52 @@ class Homodyne:
         :rtype: np.ndarray
 
         """
+        # Gets the camera size
+        h = int(self.cam.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        w = int(self.cam.get(cv2.CAP_PROP_FRAME_WIDTH))
         ret = False
         counter = 0
         while not(ret) and counter < 10:
             ret, frame_calib = self.cam.read()
             counter += 1
+        if not(ret):
+            print("ERROR : Could not grab frame")
+            sys.exit()
         plt.imshow(frame_calib, cmap="gray")
         plt.title("Calibration picture : should be 0 fringes")
-        plt.show()
+        plt.show(block=False)
+        pos_range = np.linspace(start, stop, steps)
+        positions = np.empty(pos_range.shape)
+        frames = np.empty((h, w, len(pos_range))
+        fig = plt.figure(0)
+        ax = fig.add_subplot(111)
+        im = ax.imshow(np.ones((frames.shape[0], frames.shape[1]), cmap="gray")
+        # jogs along the specified range
+        for counter, pos in enumerate(pos_range):
+            positions[counter] = self.piezo.move_to(channel, pos)
+            ret = False
+            counter = 0
+            while not(ret) and counter < 10:
+                ret, frames[:, :, counter] = self.cam.read()
+                counter += 1
+            if not(ret):
+                print("ERROR : Could not grab frame")
+                sys.exit()
+            im.set_data(frames[:, :, counter])
+            ax.set_title(f"Grabbed frame {counter+1}/{len(pos_range)}")
+            fig.canvas.draw()
+        plt.show(block=False)
+        # returns piezo to original position
+        self.piezo.move_to(channel, start)
+        # captures image to check the angle
+        ret = False
+        counter = 0
+        while not(ret) and counter < 10:
+            ret, frame_return = self.cam.read()
+            counter += 1
+        if not(ret):
+            print("ERROR : Could not grab frame")
+            sys.exit()
+        plt.imshow(frame_return, cmap="gray")
+        plt.title("Back to the start : should be 0 fringes")
+        plt.show(block=False)

@@ -213,6 +213,7 @@ class Piezo3Axis():
                    time.sleep(0.5)
            self.move_to(origin0, None, origin1)
            self.update_position()
+
 class PiezoTIM101:
 
     def __init__(self, serial: str = None):
@@ -230,7 +231,7 @@ class PiezoTIM101:
                 device_list = DeviceManagerCLI.GetDeviceList(TCubeInertialMotor.DevicePrefix)
                 if len(device_list) == 0:
                     print("Error : No TCube motor found !")
-                else :
+                else:
                     if serial in device_list:
                         try:
                             self.device = TCubeInertialMotor.CreateTCubeInertialMotor(self.serial)
@@ -238,7 +239,7 @@ class PiezoTIM101:
                             timeout = 0
                             while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
                                 self.device.WaitForSettingsInitialized(500)
-                                timeout+=1
+                                timeout += 1
                             self.device.StartPolling(250)
                             time.sleep(0.5)
                             self.device.EnableDevice()
@@ -262,20 +263,20 @@ class PiezoTIM101:
                 device_list = DeviceManagerCLI.GetDeviceList(TCubeInertialMotor.DevicePrefix)
                 if len(device_list) == 0:
                     print("Error : No TCube motor found !")
-                else :
+                else:
                     for counter, dev in enumerate(device_list):
                         print(f"Device found, serial {dev} ({counter})")
                     choice = input("Choice (number between 0 and" +
                                    f" {len(device_list)-1})? ")
                     choice = float(choice)
                     self.serial = device_list[choice]
-                    try :
+                    try:
                         self.device = TCubeInertialMotor.CreateTCubeInertialMotor(self.serial)
                         self.device.Connect(self.serial)
                         timeout = 0
                         while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
                             self.device.WaitForSettingsInitialized(500)
-                            timeout+=1
+                            timeout += 1
                         self.device.StartPolling(250)
                         time.sleep(0.5)
                         self.device.EnableDevice()
@@ -290,12 +291,12 @@ class PiezoTIM101:
                 print("ERROR")
                 print(traceback.format_exc())
         self.configuration = self.device.GetInertialMotorConfiguration(self.serial)
-        self.settings =  ThorlabsInertialMotorSettings.GetSettings(self.configuration)
+        self.settings = ThorlabsInertialMotorSettings.GetSettings(self.configuration)
         self.channel1 = InertialMotorStatus.MotorChannels.Channel1
         self.channel2 = InertialMotorStatus.MotorChannels.Channel2
         self.channel3 = InertialMotorStatus.MotorChannels.Channel3
         self.channel4 = InertialMotorStatus.MotorChannels.Channel4
-        #set default settings StepRate and StepAcceleration
+        # set default settings StepRate and StepAcceleration
         self.settings.Drive.Channel(self.channel1).StepRate = 500
         self.settings.Drive.Channel(self.channel1).StepAcceleration = 100000
         self.settings.Drive.Channel(self.channel2).StepRate = 500
@@ -314,8 +315,8 @@ class PiezoTIM101:
         """
         if channel not in [1, 2, 3, 4]:
             print("Error : Channel number must be between 1 and 4")
-        else :
-            self.settings =  ThorlabsInertialMotorSettings.GetSettings(self.configuration)
+        else:
+            self.settings = ThorlabsInertialMotorSettings.GetSettings(self.configuration)
             if channel == 1:
                 return self.settings.Drive.Channel(self.channel1).StepRate
             elif channel == 2:
@@ -333,8 +334,8 @@ class PiezoTIM101:
         """
         if channel not in [1, 2, 3, 4]:
             print("Error : Channel number must be between 1 and 4")
-        else :
-            self.settings =  ThorlabsInertialMotorSettings.GetSettings(self.configuration)
+        else:
+            self.settings = ThorlabsInertialMotorSettings.GetSettings(self.configuration)
             if channel == 1:
                 return self.settings.Drive.Channel(self.channel1).StepAcceleration
             elif channel == 2:
@@ -353,8 +354,8 @@ class PiezoTIM101:
         """
         if channel not in [1, 2, 3, 4]:
             print("Error : Channel number must be between 1 and 4")
-        else :
-            self.settings =  ThorlabsInertialMotorSettings.GetSettings(self.configuration)
+        else:
+            self.settings = ThorlabsInertialMotorSettings.GetSettings(self.configuration)
             if channel == 1:
                 self.settings.Drive.Channel(self.channel1).StepRate = steprate
             elif channel == 2:
@@ -374,8 +375,8 @@ class PiezoTIM101:
         """
         if channel not in [1, 2, 3, 4]:
             print("Error : Channel number must be between 1 and 4")
-        else :
-            self.settings =  ThorlabsInertialMotorSettings.GetSettings(self.configuration)
+        else:
+            self.settings = ThorlabsInertialMotorSettings.GetSettings(self.configuration)
             if channel == 1:
                 self.settings.Drive.Channel(self.channel1).StepAcceleration = stepaccel
             elif channel == 2:
@@ -394,7 +395,7 @@ class PiezoTIM101:
         """
         if channel not in [1, 2, 3, 4]:
             print("Error : Channel number must be between 1 and 4")
-        else :
+        else:
             if channel == 1:
                 self.device.SetPositionAs(self.channel1, 0)
             elif channel == 2:
@@ -404,19 +405,34 @@ class PiezoTIM101:
             elif channel == 4:
                 self.device.SetPositionAs(self.channel4, 0)
 
-    def move_to(self, channel: int = 1, pos: int = 0):
+    def get_position(self, channel: int = 1) -> int:
+        """Retrieves the piezo's current position
+
+        :param int channel: Channel number
+        :return: Position of the piezo in steps
+        :rtype: int
+
+        """
+        if channel not in [1, 2, 3, 4]:
+            print("Error : Channel number must be between 1 and 4")
+        else:
+            pass
+        # TODO
+
+    def move_to(self, channel: int = 1, pos: int = 0) -> int:
         """
         Moves the piezo to a specified position
         :param channel: Channel number
         :param pos: Position (int)
-        :return: None
+        :return: Current Position
+        :rtype: int
         """
         if channel not in [1, 2, 3, 4]:
             print("Error : Channel number must be between 1 and 4")
-        else :
+        else:
             try:
                 if channel == 1:
-                    #60000 must be some kind of timeout, need to find neater way of getting "has moved" signal
+                    # 60000 must be some kind of timeout, need to find neater way of getting "has moved" signal
                     self.device.MoveTo(self.channel1, pos, 60000)
                 elif channel == 2:
                     self.device.MoveTo(self.channel2, pos, 60000)
@@ -427,7 +443,9 @@ class PiezoTIM101:
             except Exception:
                 print("ERROR : Failed to move")
                 print(traceback.format_exc())
-
+            curr_pos = self.get_position(channel)
+            print(f"Moved to : {curr_pos}")
+            return curr_pos
     def disconnect(self):
         """
         Wrapper function to disconnect the object. Important for tidyness and to avoid conflicts with
