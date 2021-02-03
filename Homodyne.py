@@ -49,7 +49,7 @@ class Homodyne:
         self.cam = cam
         conf = configparser.ConfigParser()
         conf.read("homodyne.conf")
-        self.pos_to_k = [float(conf["Calib"][f"pos_to_k{n}"]) for n in range(4)]
+        self.pos_to_k = [float(conf["Calib"][f"pos_to_k{n+1}"]) for n in range(4)]
 
     def calib_fringes(self, channel: int = 1, start: int = 100,
                       stop: int = 10000, steps: int = 200,
@@ -124,9 +124,9 @@ class Homodyne:
         if plot:
             plt.show(block=False)
         # returns piezo to original position
-        pos = self.piezo.move_to(channel, start)
-        while pos != start:
-            pos = self.piezo.move_to(channel, start)
+        pos = self.piezo.move_to(channel, 0)
+        if pos != 0:
+            pos = self.piezo.move_to(channel, 0)
 
         # captures image to check the angle
         ret = False
@@ -172,7 +172,6 @@ class Homodyne:
         :type channels: list, optional
         :return: None
         :rtype: None
-
         """
         #check that the channels list provided is correct
         if len(channels) > 4:
@@ -208,7 +207,6 @@ class Homodyne:
         :return: data, time for data and time
         :return: Array of spectra
         :rtype: np.ndarray
-
         """
         #check that the channels list provided is correct
         if len(channels) > 4:
