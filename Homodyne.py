@@ -8,6 +8,7 @@ Created on Mon Feb  1 11:01:54 2021
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
+from matplotlib.patches import Circle
 from ScopeInterface import USBScope, USBSpectrumAnalyzer
 from piezo import PiezoTIM101
 import EasyPySpin
@@ -69,6 +70,9 @@ class Homodyne:
         w = int(self.cam.get(cv2.CAP_PROP_FRAME_WIDTH))
         kx = np.fft.fftfreq(w, pxpitch)
         ky = np.fft.fftfreq(h, pxpitch)
+        Kx, Ky = np.meshgrid(kx, ky)
+        K = np.fft.fftshift(np.sqrt(Kx**2 + Ky**2))
+        roi = K>6e2 #hardcoded, not great
         ret = False
         tries = 0
         while ret == False and tries < 10:
@@ -83,8 +87,7 @@ class Homodyne:
         plt.show(block=False)
         pos_range = np.linspace(start, stop, steps)
         positions = np.empty(pos_range.shape)
-        frames = np.empty((h, w, len(pos_range)))
-        frames_fft = np.empty((h, w, len(pos_range)), dtype=np.complex)
+        k_mirror = np.empty(len(pos_range))
         fig, (ax0, ax1) = plt.subplots(1, 2, sharex=False, sharey=False)
         ax0.set_title("Image")
         ax1.set_title("Fourier transform")
@@ -103,16 +106,22 @@ class Homodyne:
             ret = False
             tries = 0
             while ret == False and tries < 10:
-                ret, frames[:, :, counter] = self.cam.read()
+                ret, frame = self.cam.read()
                 tries += 1
             if ret == False:
                 print("ERROR : Could not grab frame")
                 sys.exit()
-            frames_fft[: , :, counter] = np.fft.fftshift(
-                                            np.fft.fft2(frames[:, :, counter]))
-            if (counter+1)%20==0:
-                im0.set_data(frames[:, :, counter])
-                im1.set_data(np.log(np.abs(frames_fft[:, :, counter])))
+            frame_fft = np.fft.fftshift(np.fft.fft2(frame))
+            roi = (K>6e2)
+            im_filt = frame_fft*roi
+            max = np.where(im_filt == np.max(im_filt))
+            k_mirror[counter] = K[max][0]
+            if (counter+1)%10==0:
+                im0.set_data(frame)
+                im1.set_data(np.log(np.abs(frame_fft)))
+                circle = Circle(max, radius = 5, fill = False)
+                ax1.add_patch(circle)
+                im1.set_clip_path(circle)
                 fig.suptitle(f"Grabbed frame {counter+1}/{len(pos_range)}")
                 mypause(0.5)
                 fig.canvas.draw()
@@ -131,4 +140,4 @@ class Homodyne:
         # ax.imshow(frame_return, cmap="gray")
         # ax.set_title("Back to the start : should be 0 fringes")
         # plt.show()
-        return frames, positions
+        return positions, k_mirror
