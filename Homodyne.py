@@ -13,6 +13,7 @@ import EasyPySpin
 import cv2
 import sys
 import os
+import configparser
 
 plt.switch_backend('Qt5Agg')
 plt.ion()
@@ -46,7 +47,10 @@ class Homodyne:
         self.specAn = specAn
         self.scope = scope
         self.cam = cam
-        self.pos_to_k = [0, 0, 0, 0]
+        conf = configparser.ConfigParser()
+        conf.read("homodyne.conf")
+        self.pos_to_k = [float(conf["Calib"][f"pos_to_k{n}"]) for n in range(4)]
+
     def calib_fringes(self, channel: int = 1, start: int = 100,
                       stop: int = 10000, steps: int = 200,
                       pxpitch: float = 5.5e-6, plot=False) -> np.ndarray:
@@ -123,7 +127,7 @@ class Homodyne:
         pos = self.piezo.move_to(channel, start)
         while pos != start:
             pos = self.piezo.move_to(channel, start)
-            
+
         # captures image to check the angle
         ret = False
         counter = 0
@@ -136,13 +140,19 @@ class Homodyne:
         #record calibration
         # linear fit
         a, b = np.polyfit(positions, k_mirror, 1)
+        #write to file for future use
+        conf = configparser.ConfigParser()
+        conf.read("homodyne.conf")
+        conf["Calib"][f"pos_to_k{channel}"] = str(a)
+        with open('homodyne.conf', 'w') as configfile:
+            conf.write(configfile)
         self.pos_to_k[channel-1] = a
-        fig1, ax = plt.subplots(1, 1, sharex=False, sharey=False)
+        fig1, ax = plt.subplots(1, 1, figsize=(12,20))
         ax.plot(positions, k_mirror*1e-6)
         ax.plot(positions, 1e-6*(a*positions+b), color='red', linestyle='--')
         textstr = f"a = {np.round(a, decimals=3)*1e-6} "+\
                   "$\\mu m^{-1}$/step"+\
-                  f"\n b = {np.round(b, decimals=3)*1e-6} "+"$\\mu m^{-1}$" 
+                  f"\n b = {np.round(b, decimals=3)*1e-6} "+"$\\mu m^{-1}$"
         props = dict(boxstyle='square', facecolor='grey', alpha=0.5)
         ax.text(0.90, 0.95, textstr, transform=ax.transAxes, fontsize=14,
                 verticalalignment='top', bbox=props)
@@ -150,6 +160,7 @@ class Homodyne:
         ax.set_xlabel("Piezo position in steps")
         ax.set_ylabel("Wavenumber of the LO in $\\mu m^{-1}$")
         ax.legend(["Experimental", "Linear fit"])
+        plt.savefig("calibration.png")
         plt.show(block=False)
         return positions, k_mirror
     def move_to_k(self, k: float, channels: list = [1]):
