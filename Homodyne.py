@@ -1,14 +1,12 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon Feb  1 11:01:54 2021
-
 @author: Tangui ALADJIDI
 """
 
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-from matplotlib.patches import Circle
 from ScopeInterface import USBScope, USBSpectrumAnalyzer
 from piezo import PiezoTIM101
 import EasyPySpin
@@ -36,26 +34,23 @@ class Homodyne:
                  scope: USBScope, cam: EasyPySpin.VideoCapture):
         """Instantiates the homodyne setup with a piezo to move the LO angle,
         a spectrum analyzer, an oscilloscope and a camera.
-
         :param PiezoTIM101 piezo: Piezo to jog
         :param USBSpectrumAnalyzer specAn: spectrum analyzer
         :param USBScope scope: oscilloscope
         :param EasyPySpin cam: camera, EasyPySpin instance
         :return: Homodyne object
         :rtype: Homodyne
-
         """
 
         self.piezo = piezo
         self.specAn = specAn
         self.scope = scope
         self.cam = cam
-
+        self.pos_to_k = [0, 0, 0, 0]
     def calib_fringes(self, channel: int = 1, start: int = 100,
                       stop: int = 10000, steps: int = 200,
-                      pxpitch: float = 5.5e-6) -> np.ndarray:
+                      pxpitch: float = 5.5e-6, plot=False) -> np.ndarray:
         """Function to calibrate the k values accessed by the local oscillator
-
         :param PiezoTIM101 piezo: piezo to actuate
         :param int channel: Piezo channel to actuate
         :param int start: Start position of the piezo
@@ -63,7 +58,6 @@ class Homodyne:
         :param float pxpitch: Pixel pitch of the camera
         :return: Description of returned object.
         :rtype: np.ndarray
-
         """
         # Gets the camera size
         h = int(self.cam.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -81,25 +75,26 @@ class Homodyne:
         if ret == False:
             print("ERROR : Could not grab frame")
             sys.exit()
-        fig0, ax = plt.subplots(1, 1)
-        ax.imshow(frame_calib, cmap="gray")
-        ax.set_title("Calibration picture : should be 0 fringes")
-        plt.show(block=False)
+        if plot:
+            fig0, ax = plt.subplots(1, 1)
+            ax.imshow(frame_calib, cmap="gray")
+            ax.set_title("Calibration picture : should be 0 fringes")
+            plt.show(block=False)
         pos_range = np.linspace(start, stop, steps)
         positions = np.empty(pos_range.shape)
         k_mirror = np.empty(len(pos_range))
-        fig, (ax0, ax1) = plt.subplots(1, 2, sharex=False, sharey=False)
-        ax0.set_title("Image")
-        ax1.set_title("Fourier transform")
-        im0 = ax0.imshow(np.ones((frames.shape[0], frames.shape[1])),
-                    cmap="gray", vmin=0, vmax=255)
-        im1 = ax1.imshow(np.ones((frames.shape[0], frames.shape[1])),
-                         extent=[np.min(kx)*1e-6, np.max(kx)*1e-6,
-                                 np.min(ky)*1e-6, np.max(ky)*1e-6],
-                         vmin=4,
-                         vmax=17)
-        ax1.set_xlabel("$k_x$ in $\\mu m^{-1}$")
-        ax1.set_ylabel("$k_y$ in $\\mu m^{-1}$")
+        if plot:
+            fig, (ax0, ax1) = plt.subplots(1, 2, sharex=False, sharey=False)
+            ax0.set_title("Image")
+            ax1.set_title("Fourier transform")
+            im0 = ax0.imshow(np.ones((frame_calib.shape[0], frame_calib.shape[1])),
+                        cmap="gray", vmin=0, vmax=255)
+            im1 = ax1.imshow(np.ones((frame_calib.shape[0], frame_calib.shape[1])),
+                             extent=[np.min(kx)*1e-6, np.max(kx)*1e-6,
+                                     np.min(ky)*1e-6, np.max(ky)*1e-6],
+                             vmin=6, vmax=14)
+            ax1.set_xlabel("$k_x$ in $\\mu m^{-1}$")
+            ax1.set_ylabel("$k_y$ in $\\mu m^{-1}$")
         # jogs along the specified range
         for counter, pos in enumerate(pos_range):
             positions[counter] = self.piezo.move_to(channel, pos)
@@ -113,21 +108,22 @@ class Homodyne:
                 sys.exit()
             frame_fft = np.fft.fftshift(np.fft.fft2(frame))
             roi = (K>6e2)
-            im_filt = frame_fft*roi
+            im_filt = np.abs(frame_fft)*roi
             max = np.where(im_filt == np.max(im_filt))
             k_mirror[counter] = K[max][0]
-            if (counter+1)%10==0:
+            if (counter+1)%10==0 and plot:
                 im0.set_data(frame)
                 im1.set_data(np.log(np.abs(frame_fft)))
-                circle = Circle(max, radius = 5, fill = False)
-                ax1.add_patch(circle)
-                im1.set_clip_path(circle)
                 fig.suptitle(f"Grabbed frame {counter+1}/{len(pos_range)}")
                 mypause(0.5)
                 fig.canvas.draw()
-        plt.show(block=False)
+        if plot:
+            plt.show(block=False)
         # returns piezo to original position
-        self.piezo.move_to(channel, 0)
+        pos = self.piezo.move_to(channel, start)
+        while pos != start:
+            pos = self.piezo.move_to(channel, start)
+            
         # captures image to check the angle
         ret = False
         counter = 0
@@ -137,7 +133,89 @@ class Homodyne:
         if not(ret):
             print("ERROR : Could not grab frame")
             sys.exit()
-        # ax.imshow(frame_return, cmap="gray")
-        # ax.set_title("Back to the start : should be 0 fringes")
-        # plt.show()
+        #record calibration
+        # linear fit
+        a, b = np.polyfit(positions, k_mirror, 1)
+        self.pos_to_k[channel-1] = a
+        fig1, ax = plt.subplots(1, 1, sharex=False, sharey=False)
+        ax.plot(positions, k_mirror*1e-6)
+        ax.plot(positions, 1e-6*(a*positions+b), color='red', linestyle='--')
+        textstr = f"a = {np.round(a, decimals=3)*1e-6} "+\
+                  "$\\mu m^{-1}$/step"+\
+                  f"\n b = {np.round(b, decimals=3)*1e-6} "+"$\\mu m^{-1}$" 
+        props = dict(boxstyle='square', facecolor='grey', alpha=0.5)
+        ax.text(0.90, 0.95, textstr, transform=ax.transAxes, fontsize=14,
+                verticalalignment='top', bbox=props)
+        ax.set_title("Mirror angle calibration")
+        ax.set_xlabel("Piezo position in steps")
+        ax.set_ylabel("Wavenumber of the LO in $\\mu m^{-1}$")
+        ax.legend(["Experimental", "Linear fit"])
+        plt.show(block=False)
         return positions, k_mirror
+    def move_to_k(self, k: float, channels: list = [1]):
+        """
+        Moves the LO to a specified k value
+        :param k: Wavevector in m^{-1}
+        :type k: float
+        :param channels: Channels to move, defaults to [1]
+        :type channels: list, optional
+        :return: None
+        :rtype: None
+
+        """
+        #check that the channels list provided is correct
+        if len(channels) > 4:
+                print("ERROR : Invalid channel list provided"+
+                      " (List too long)")
+                sys.exit()
+        for chan in channels:
+            if chan > 4:
+                print("ERROR : Invalid channel list provided"+
+                      " (Channels are 1,2,3,4)")
+                sys.exit()
+        for nbr, chan in enumerate(channels):
+            pos_to_k = self.pos_to_k[nbr]
+            pos_tgt = int(k/pos_to_k)
+            self.piezo.move_to(chan, pos_tgt)
+    def scan_k(self, k0: float = 0, k1: float = 0.005e6, steps: int = 50,
+               channels: list = [1], rbw: float = 100e3, vbw: float = 30,
+                  swt: float = 50e-3, trig: bool = False) -> np.ndarray:
+        """
+        Scans the given k values and takes a spectrum for each k value
+        :param k0: Start wavevector in m^{-1}, defaults to 0
+        :type k0: float, optional
+        :param k1: Stop wavevector in m^{-1}, defaults to 0.001e6
+        :type k1: float, optional
+        :param steps: Number of steps, defaults to 50
+        :type steps: int, optional
+        :param channels: channels list, defaults to [1]
+        :type channels: list, optional
+        :param float rbw: Resolution bandwidth
+        :param float vbw: Video bandwidth
+        :param float swt: Total measurement time
+        :param bool trig: External trigger
+        :return: data, time for data and time
+        :return: Array of spectra
+        :rtype: np.ndarray
+
+        """
+        #check that the channels list provided is correct
+        if len(channels) > 4:
+                print("ERROR : Invalid channel list provided"+
+                      " (List too long)")
+                sys.exit()
+        for chan in channels:
+            if chan > 4:
+                print("ERROR : Invalid channel list provided"+
+                      " (Channels are 1,2,3,4)")
+                sys.exit()
+        # puts the specAn in zero span mode and retrieve a spectrum to get the
+        # data formats
+        k_values = np.linspace(k0, k1, steps)
+        data, time = self.specAn.zero_span()
+        spectra = np.empty((len(channels), len(k_values), len(time)))
+        for nbr, chan in enumerate(channels):
+            for counter_k, k in enumerate(k_values):
+                data, time = self.specAn.zero_span()
+                spectra[nbr, counter_k, :] = data
+        return spectra, time
