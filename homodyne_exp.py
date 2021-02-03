@@ -25,7 +25,7 @@ w = int(cam.get(cv2.CAP_PROP_FRAME_WIDTH))
 kx = np.fft.fftfreq(w, pxpitch)*1e-6
 ky = np.fft.fftfreq(h, pxpitch)*1e-6
 setup = Homodyne(piezo, specAn, scope, cam)
-positions, k_mirror = setup.calib_fringes(start=100, stop=10000, steps=200)
+positions, k_mirror = setup.calib_fringes(start=100, stop=60000, steps=100, plot=True)
 
 piezo.disconnect()
 cam.release()
