@@ -306,7 +306,8 @@ class PiezoTIM101:
         self.settings.Drive.Channel(self.channel4).StepRate = 500
         self.settings.Drive.Channel(self.channel4).StepAcceleration = 100000
         self.device.SetSettings(self.settings, True, True)
-
+        self.zero()
+        
     def get_steprate(self, channel: int = 1) -> float:
         """
         Wrapper function to get the step rate of a channel in Hz
@@ -440,19 +441,18 @@ class PiezoTIM101:
         else:
             try:
                 if channel == 1:
-                    # 60000 must be some kind of timeout, need to find neater way of getting "has moved" signal
-                    self.device.MoveTo(self.channel1, pos, 60000)
+                    self.device.MoveTo(self.channel1, pos, 120000)
                 elif channel == 2:
-                    self.device.MoveTo(self.channel2, pos, 60000)
+                    self.device.MoveTo(self.channel2, pos, 120000)
                 elif channel == 3:
-                    self.device.MoveTo(self.channel3, pos, 60000)
+                    self.device.MoveTo(self.channel3, pos, 120000)
                 elif channel == 4:
-                    self.device.MoveTo(self.channel4, pos, 60000)
+                    self.device.MoveTo(self.channel4, pos, 120000)
             except Exception:
                 print("ERROR : Failed to move")
                 print(traceback.format_exc())
             curr_pos = self.get_position(channel)
-            print(f"Moved to : {curr_pos}")
+            sys.stdout.write(f"\r Moved to : {curr_pos}")
             return curr_pos
     def disconnect(self):
         """
