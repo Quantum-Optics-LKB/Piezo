@@ -14,6 +14,7 @@ import cv2
 import sys
 import os
 import configparser
+import traceback
 
 plt.switch_backend('Qt5Agg')
 plt.ion()
@@ -166,15 +167,15 @@ class Homodyne:
         plt.show(block=False)
         return positions, k_mirror
 
-    def move_to_k(self, k: float, channels: list = [1]):
+    def move_to_k(self, k: float, channels: list = [1]) -> float:
         """
         Moves the LO to a specified k value
         :param k: Wavevector in m^{-1}
         :type k: float
         :param channels: Channels to move, defaults to [1]
         :type channels: list, optional
-        :return: None
-        :rtype: None
+        :return: k_actual the actual angle reached
+        :rtype: float
         """
         # check that the channels list provided is correct
         if len(channels) > 4:
@@ -189,11 +190,15 @@ class Homodyne:
         for nbr, chan in enumerate(channels):
             pos_to_k = self.pos_to_k[nbr]
             pos_tgt = int(k/pos_to_k)
-            self.piezo.move_to(chan, pos_tgt)
-
-    def scan_k(self, k0: float = 0, k1: float = 0.005e6, steps: int = 50,
-               channels: list = [1], rbw: float = 100e3, vbw: float = 30,
-               swt: float = 50e-3, trig: bool = False) -> np.ndarray:
+            pos = self.piezo.move_to(chan, pos_tgt)
+            k_actual = pos*pos_to_k
+            prt = np.round(k_actual*1e-6, decimals=6)
+            sys.stdout.write(f", k = {prt} um^-1")
+            return k_actual
+    def scan_k(self, k0: float = 10, k1: float = 0.01e6, steps: int = 50,
+               channels: list = [1], center: float = 1e6, rbw: float = 100e3,
+               vbw: float = 30, swt: float = 50e-3,
+               trig: bool = False) -> np.ndarray:
         """
         Scans the given k values and takes a spectrum for each k value
         :param k0: Start wavevector in m^{-1}, defaults to 0
@@ -204,6 +209,7 @@ class Homodyne:
         :type steps: int, optional
         :param channels: channels list, defaults to [1]
         :type channels: list, optional
+        :param float center: Center frequency in Hz
         :param float rbw: Resolution bandwidth
         :param float vbw: Video bandwidth
         :param float swt: Total measurement time
@@ -225,10 +231,19 @@ class Homodyne:
         # puts the specAn in zero span mode and retrieve a spectrum to get the
         # data formats
         k_values = np.linspace(k0, k1, steps)
+        k_actual = np.empty(k_values.shape)
         data, time = self.specAn.zero_span()
         spectra = np.empty((len(channels), len(k_values), len(time)))
         for nbr, chan in enumerate(channels):
             for counter_k, k in enumerate(k_values):
-                data, time = self.specAn.zero_span()
-                spectra[nbr, counter_k, :] = data
-        return spectra, time
+                try :
+                    k_actual[counter_k] = self.move_to_k(k, channels=[chan])
+                    data, time = self.specAn.zero_span()
+                    spectra[nbr, counter_k, :] = data
+                except Exception:
+                    print("ERROR : Could not move")
+                    print(traceback.format_exc())
+            self.piezo.move_to(chan, 0)
+        return spectra, time, k_actual
+    
+    
