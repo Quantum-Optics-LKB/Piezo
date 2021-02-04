@@ -70,13 +70,13 @@ class Homodyne:
         ky = np.fft.fftfreq(h, pxpitch)
         Kx, Ky = np.meshgrid(kx, ky)
         K = np.fft.fftshift(np.sqrt(Kx**2 + Ky**2))
-        roi = K>6e2 #hardcoded, not great
+        roi = K > 6e2  # hardcoded, not great
         ret = False
         tries = 0
-        while ret == False and tries < 10:
+        while ret is False and tries < 10:
             ret, frame_calib = self.cam.read()
             tries += 1
-        if ret == False:
+        if ret is False:
             print("ERROR : Could not grab frame")
             sys.exit()
         if plot:
@@ -91,9 +91,11 @@ class Homodyne:
             fig, (ax0, ax1) = plt.subplots(1, 2, sharex=False, sharey=False)
             ax0.set_title("Image")
             ax1.set_title("Fourier transform")
-            im0 = ax0.imshow(np.ones((frame_calib.shape[0], frame_calib.shape[1])),
-                        cmap="gray", vmin=0, vmax=255)
-            im1 = ax1.imshow(np.ones((frame_calib.shape[0], frame_calib.shape[1])),
+            im0 = ax0.imshow(np.ones((frame_calib.shape[0],
+                                      frame_calib.shape[1])),
+                             cmap="gray", vmin=0, vmax=255)
+            im1 = ax1.imshow(np.ones((frame_calib.shape[0],
+                                      frame_calib.shape[1])),
                              extent=[np.min(kx)*1e-6, np.max(kx)*1e-6,
                                      np.min(ky)*1e-6, np.max(ky)*1e-6],
                              vmin=6, vmax=14)
@@ -104,18 +106,18 @@ class Homodyne:
             positions[counter] = self.piezo.move_to(channel, pos)
             ret = False
             tries = 0
-            while ret == False and tries < 10:
+            while ret is False and tries < 10:
                 ret, frame = self.cam.read()
                 tries += 1
-            if ret == False:
+            if ret is False:
                 print("ERROR : Could not grab frame")
                 sys.exit()
             frame_fft = np.fft.fftshift(np.fft.fft2(frame))
-            roi = (K>6e2)
+            roi = K > 6e2
             im_filt = np.abs(frame_fft)*roi
             max = np.where(im_filt == np.max(im_filt))
             k_mirror[counter] = K[max][0]
-            if (counter+1)%10==0 and plot:
+            if (counter+1) % 10 == 0 and plot:
                 im0.set_data(frame)
                 im1.set_data(np.log(np.abs(frame_fft)))
                 fig.suptitle(f"Grabbed frame {counter+1}/{len(pos_range)}")
@@ -137,21 +139,21 @@ class Homodyne:
         if not(ret):
             print("ERROR : Could not grab frame")
             sys.exit()
-        #record calibration
+        # record calibration
         # linear fit
         a, b = np.polyfit(positions, k_mirror, 1)
-        #write to file for future use
+        # write to file for future use
         conf = configparser.ConfigParser()
         conf.read("homodyne.conf")
         conf["Calib"][f"pos_to_k{channel}"] = str(a)
         with open('homodyne.conf', 'w') as configfile:
             conf.write(configfile)
         self.pos_to_k[channel-1] = a
-        fig1, ax = plt.subplots(1, 1, figsize=(12,20))
+        fig1, ax = plt.subplots(1, 1, figsize=(12, 20))
         ax.plot(positions, k_mirror*1e-6)
         ax.plot(positions, 1e-6*(a*positions+b), color='red', linestyle='--')
-        textstr = f"a = {np.round(a, decimals=3)*1e-6} "+\
-                  "$\\mu m^{-1}$/step"+\
+        textstr = f"a = {np.round(a, decimals=3)*1e-6} " + \
+                  "$\\mu m^{-1}$/step" + \
                   f"\n b = {np.round(b, decimals=3)*1e-6} "+"$\\mu m^{-1}$"
         props = dict(boxstyle='square', facecolor='grey', alpha=0.5)
         ax.text(0.90, 0.95, textstr, transform=ax.transAxes, fontsize=14,
@@ -163,6 +165,7 @@ class Homodyne:
         plt.savefig("calibration.png")
         plt.show(block=False)
         return positions, k_mirror
+
     def move_to_k(self, k: float, channels: list = [1]):
         """
         Moves the LO to a specified k value
@@ -174,23 +177,24 @@ class Homodyne:
         :rtype: None
 
         """
-        #check that the channels list provided is correct
+        # check that the channels list provided is correct
         if len(channels) > 4:
-                print("ERROR : Invalid channel list provided"+
-                      " (List too long)")
-                sys.exit()
+            print("ERROR : Invalid channel list provided" +
+                  " (List too long)")
+            sys.exit()
         for chan in channels:
             if chan > 4:
-                print("ERROR : Invalid channel list provided"+
+                print("ERROR : Invalid channel list provided" +
                       " (Channels are 1,2,3,4)")
                 sys.exit()
         for nbr, chan in enumerate(channels):
             pos_to_k = self.pos_to_k[nbr]
             pos_tgt = int(k/pos_to_k)
             self.piezo.move_to(chan, pos_tgt)
+
     def scan_k(self, k0: float = 0, k1: float = 0.005e6, steps: int = 50,
                channels: list = [1], rbw: float = 100e3, vbw: float = 30,
-                  swt: float = 50e-3, trig: bool = False) -> np.ndarray:
+               swt: float = 50e-3, trig: bool = False) -> np.ndarray:
         """
         Scans the given k values and takes a spectrum for each k value
         :param k0: Start wavevector in m^{-1}, defaults to 0
@@ -210,14 +214,14 @@ class Homodyne:
         :rtype: np.ndarray
 
         """
-        #check that the channels list provided is correct
+        # check that the channels list provided is correct
         if len(channels) > 4:
-                print("ERROR : Invalid channel list provided"+
-                      " (List too long)")
-                sys.exit()
+            print("ERROR : Invalid channel list provided" +
+                  " (List too long)")
+            sys.exit()
         for chan in channels:
             if chan > 4:
-                print("ERROR : Invalid channel list provided"+
+                print("ERROR : Invalid channel list provided" +
                       " (Channels are 1,2,3,4)")
                 sys.exit()
         # puts the specAn in zero span mode and retrieve a spectrum to get the
