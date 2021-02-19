@@ -15,7 +15,6 @@ import cv2
 import sys
 import configparser
 import traceback
-import numba
 import scipy.fft as fft
 import pyfftw
 import multiprocessing
@@ -255,37 +254,7 @@ class Homodyne:
         return spectra, time, k_actual
 
     @staticmethod
-    @numba.jit(nopython=True)
-    def shift5(arr, numi, numj, fill_value=0):
-        """Fast array shifting
-
-        :param np.ndarray arr: Array to shift
-        :param int numi: Pixel to shift for row number
-        :param int numj: Pixel to shift for column number
-        :param fill_value: Filling value
-        :return: The shifted array
-        :rtype: depends on fill value type np.ndarray[np.float32, ndim=2]
-
-        """
-        result = np.empty_like(arr)
-        if numi > 0:
-            result[:numi, :] = fill_value
-            result[numi:, :] = arr[:-numi, :]
-        elif numi < 0:
-            result[numi:, :] = fill_value
-            result[:numi, :] = arr[-numi:, :]
-        if numj > 0:
-            result[:, :numj] = fill_value
-            result[:, numj:] = arr[:, :-numj]
-        elif numj < 0:
-            result[:, numj:] = fill_value
-            result[:, :numj] = arr[:, -numj:]
-        else:
-            result[:] = arr
-        return result
-
-    @staticmethod
-    def get_visibility(self, frame, fft_side=None, fft_center=None,
+    def get_visibility(frame, fft_side=None, fft_center=None,
                        fft_obj_s=None, ifft_obj_s=None, ifft_obj_c=None):
         """Gets the visibility of a given fringe pattern using Fourier filtering
 
@@ -301,6 +270,33 @@ class Homodyne:
         :rtype: (float, np.ndarray[np.float32, ndim=2])
 
         """
+        def _shift5(arr, numi, numj, fill_value=0):
+            """Fast array shifting
+
+            :param np.ndarray arr: Array to shift
+            :param int numi: Pixel to shift for row number
+            :param int numj: Pixel to shift for column number
+            :param fill_value: Filling value
+            :return: The shifted array
+            :rtype: depends on fill value type np.ndarray[np.float32, ndim=2]
+
+            """
+            result = np.empty_like(arr)
+            if numi > 0:
+                result[:numi, :] = fill_value
+                result[numi:, :] = arr[:-numi, :]
+            elif numi < 0:
+                result[numi:, :] = fill_value
+                result[:numi, :] = arr[-numi:, :]
+            if numj > 0:
+                result[:, :numj] = fill_value
+                result[:, numj:] = arr[:, :-numj]
+            elif numj < 0:
+                result[:, numj:] = fill_value
+                result[:, :numj] = arr[:, -numj:]
+            else:
+                result[:] = arr
+            return result
 
         if fft_side is not None and fft_center is not None:
             fft_side[:] = frame
@@ -324,8 +320,8 @@ class Homodyne:
         fft_center[:] = fft_side*roic
         fft_side[:] = fft_side*roi
         max = np.where(np.abs(fft_side) == np.max(np.abs(fft_side)))
-        fft_side = shift5(fft_side, fft_side.shape[0]//2-max[0][0],
-                          fft_side.shape[1]//2-max[1][0])
+        fft_side = _shift5(fft_side, fft_side.shape[0]//2-max[0][0],
+                                     fft_side.shape[1]//2-max[1][0])
         if ifft_obj_s is not None:
             vis = fft.fftshift(ifft_obj_s(fft.ifftshift(fft_side)))
         else:
@@ -395,8 +391,8 @@ class Homodyne:
         def animate(i, ys, fft_side, fft_center, fft_obj_s, ifft_obj_s,
                     ifft_obj_c):
             ret, frame = self.cam.read()
-            vis, Vis = get_visibility(frame, fft_side, fft_center, fft_obj_s,
-                                      ifft_obj_s, ifft_obj_c)
+            vis, Vis = self.get_visibility(frame, fft_side, fft_center,
+                                           fft_obj_s, ifft_obj_s, ifft_obj_c)
             im.set_data(frame)
             im1.set_data(Vis)
             # Add y to list
