@@ -253,9 +253,8 @@ class Homodyne:
             self.piezo.move_to(chan, 0)
         return spectra, time, k_actual
 
-    @staticmethod
-    def get_visibility(frame, fft_side=None, fft_center=None,
-                       fft_obj_s=None, ifft_obj_s=None, ifft_obj_c=None):
+    def __get_visibility(frame, fft_side=None, fft_center=None,
+                         fft_obj_s=None, ifft_obj_s=None, ifft_obj_c=None):
         """Gets the visibility of a given fringe pattern using Fourier filtering
 
         :param np.ndarray frame: Fringe pattern.
@@ -270,7 +269,7 @@ class Homodyne:
         :rtype: (float, np.ndarray[np.float32, ndim=2])
 
         """
-        def _shift5(arr, numi, numj, fill_value=0):
+        def shift5(arr, numi, numj, fill_value=0):
             """Fast array shifting
 
             :param np.ndarray arr: Array to shift
@@ -320,8 +319,8 @@ class Homodyne:
         fft_center[:] = fft_side*roic
         fft_side[:] = fft_side*roi
         max = np.where(np.abs(fft_side) == np.max(np.abs(fft_side)))
-        fft_side = _shift5(fft_side, fft_side.shape[0]//2-max[0][0],
-                                     fft_side.shape[1]//2-max[1][0])
+        fft_side = shift5(fft_side, fft_side.shape[0]//2-max[0][0],
+                          fft_side.shape[1]//2-max[1][0])
         if ifft_obj_s is not None:
             vis = fft.fftshift(ifft_obj_s(fft.ifftshift(fft_side)))
         else:
@@ -391,8 +390,8 @@ class Homodyne:
         def animate(i, ys, fft_side, fft_center, fft_obj_s, ifft_obj_s,
                     ifft_obj_c):
             ret, frame = self.cam.read()
-            vis, Vis = self.get_visibility(frame, fft_side, fft_center,
-                                           fft_obj_s, ifft_obj_s, ifft_obj_c)
+            vis, Vis = self.__get_visibility(frame, fft_side, fft_center,
+                                             fft_obj_s, ifft_obj_s, ifft_obj_c)
             im.set_data(frame)
             im1.set_data(Vis)
             # Add y to list
