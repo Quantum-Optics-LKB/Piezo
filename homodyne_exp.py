@@ -6,7 +6,7 @@ from ScopeInterface import USBScope, USBSpectrumAnalyzer
 from piezo import PiezoTIM101
 from Homodyne import Homodyne
 import os
-import sys 
+import sys
 
 plt.switch_backend('Qt5Agg')
 plt.ion()
@@ -28,15 +28,25 @@ ky = np.fft.fftfreq(h, pxpitch)*1e-6
 setup = Homodyne(piezo, specAn, scope, cam)
 # positions, k_mirror = setup.calib_fringes(start=100, stop=60000, steps=100, plot=True)
 # setup.move_to_k(0.005e6)
-cont = input("Vaccum calibration, block diodes and press any key to continue ")
+cont = input("Electronic noise calibration, block diodes and press any key" +
+             " to continue ")
+if cont is not None:
+    elec, time_e = setup.specAn.zero_span()
+else:
+    sys.exit()
+cont = input("Electronic noise calibration recorded, press any key to" +
+             " continue ")
+cont = input("Vacuum calibration, block signal and press any key" +
+             " to continue ")
 if cont is not None:
     vacuum, time_v = setup.specAn.zero_span()
-else : 
+else:
     sys.exit()
-cont = input("Vaccum calibration recorded, press any key to continue ")
+cont = input("Vacuum calibration recorded, press any key to" +
+             " continue ")
 if cont is not None:
     spectra, time, k_actual = setup.scan_k()
-else : 
+else:
     sys.exit()
 piezo.disconnect()
 cam.release()
@@ -44,11 +54,12 @@ specAn.close()
 
 # vacuum = np.asarray(vacuum)
 # spectra = np.asarray(spectra)
+elec_in_V = np.exp(elec/10)
 vacuum_in_V = np.exp(vacuum/10)
-spectra_in_V = np.exp(spectra/10)-vacuum_in_V
+spectra_in_V = np.exp(spectra/10) - vacuum_in_V - elec_in_V
 spec_k = np.mean(spectra_in_V[0, :, :], axis=1)
 std = np.std(spectra_in_V[0, :, :], axis=1)
-fig, ax = plt.subplots(1,1)
+fig, ax = plt.subplots(1, 1)
 fig.suptitle("Noise spectrum vs LO angle")
 ax.set_xlabel("Wavevector in $\\mu m^{-1}$")
 ax.set_ylabel("Signal in mV")
