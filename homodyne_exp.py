@@ -31,7 +31,7 @@ setup = Homodyne(piezo, specAn, scope, cam)
 cont = input("Electronic noise calibration, block diodes and press any key" +
              " to continue ")
 if cont is not None:
-    elec, time_e = setup.specAn.zero_span()
+    elec, time_e, lo_elec, time_lo_elec = setup.measure_once()
 else:
     sys.exit()
 cont = input("Electronic noise calibration recorded, press any key to" +
@@ -39,31 +39,31 @@ cont = input("Electronic noise calibration recorded, press any key to" +
 cont = input("Vacuum calibration, block signal and press any key" +
              " to continue ")
 if cont is not None:
-    vacuum, time_v = setup.specAn.zero_span()
+    vacuum, time_v, lo_vacuum, time_lo_vacuum = setup.specAn.zero_span()
 else:
     sys.exit()
-cont = input("Vacuum calibration recorded, press any key to" +
-             " continue ")
-if cont is not None:
-    spectra, time, k_actual = setup.scan_k()
-else:
-    sys.exit()
+# cont = input("Vacuum calibration recorded, press any key to" +
+#              " continue ")
+# if cont is not None:
+#     spectra, time, k_actual = setup.scan_k()
+# else:
+#     sys.exit()
 piezo.disconnect()
 cam.release()
 specAn.close()
 
 # vacuum = np.asarray(vacuum)
 # spectra = np.asarray(spectra)
-elec_in_V = np.exp(elec/10)
-vacuum_in_V = np.exp(vacuum/10)
-spectra_in_V = np.exp(spectra/10) - vacuum_in_V - elec_in_V
-spec_k = np.mean(spectra_in_V[0, :, :], axis=1)
-std = np.std(spectra_in_V[0, :, :], axis=1)
-fig, ax = plt.subplots(1, 1)
-fig.suptitle("Noise spectrum vs LO angle")
-ax.set_xlabel("Wavevector in $\\mu m^{-1}$")
-ax.set_ylabel("Signal in mV")
-ax.plot(k_actual*1e-6, np.mean(vacuum_in_V)*np.ones(k_actual.shape))
-ax.errorbar(k_actual*1e-6, spec_k*1e3, std)
-plt.legend(["Noise", "Signal"])
-plt.show()
+# elec_in_V = np.exp(elec/10)
+# vacuum_in_V = np.exp(vacuum/10)
+# spectra_in_V = np.exp(spectra/10) - vacuum_in_V - elec_in_V
+# spec_k = np.mean(spectra_in_V[0, :, :], axis=1)
+# std = np.std(spectra_in_V[0, :, :], axis=1)
+# fig, ax = plt.subplots(1, 1)
+# fig.suptitle("Noise spectrum vs LO angle")
+# ax.set_xlabel("Wavevector in $\\mu m^{-1}$")
+# ax.set_ylabel("Signal in mV")
+# ax.plot(k_actual*1e-6, np.mean(vacuum_in_V)*np.ones(k_actual.shape))
+# ax.errorbar(k_actual*1e-6, spec_k*1e3, std)
+# plt.legend(["Noise", "Signal"])
+# plt.show()

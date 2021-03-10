@@ -201,6 +201,65 @@ class Homodyne:
             sys.stdout.write(f", k = {prt} um^-1")
             return k_actual
 
+    def __measure_specAn(self, output: list,
+                         center: float = 1e6, rbw: float = 100e3,
+                         vbw: float = 30, swt: float = 50e-3,
+                         trig: bool = False) -> np.ndarray:
+        """
+        Private copy of a SpecAn zero span measure with output list to
+        stock the output of the measurement for parallel execution
+        :param list output: Description of parameter `output`.
+        :return: None
+        """
+        data, time = self.specAn.zero_span(center, rbw, vbw, swt, trig)
+        output.append((data, time))
+
+    def __measure_scope(self, output: list, channels: list = [1]):
+        """
+        Private copy of a get_waveform Scope measure with output list to
+        stock the output of the measurement for parallel execution
+        :param list output: Description of parameter `output`.
+        :return: None
+        """
+        data, time = self.scope.get_waveform(channels)
+        output.append((data, time))
+
+    def measure_once(self, channels: list = [1], center: float = 1e6,
+                     rbw: float = 100e3, vbw: float = 30, swt: float = 50e-3,
+                     trig: bool = False) -> np.ndarray:
+        """
+        Does a single noise measurement
+        :param channels: channels list, defaults to [1]
+        :type channels: list, optional
+        :param float center: Center frequency in Hz
+        :param float rbw: Resolution bandwidth
+        :param float vbw: Video bandwidth
+        :param float swt: Total measurement time
+        :param bool trig: External trigger
+        :return: data, time for data and time
+        :return: Tuple of spectrum / LO power ((channels, time), (LO, time_LO))
+        :rtype: np.ndarray
+        """
+
+        output_specAn = []
+        output_scope = []
+        # measure simultaneously on the SpecAnalyzer as well as on the Scope
+        p0 = multiprocessing.Process(target=self.__measure_specAn,
+                                     args=(output_specAn, center, rbw, vbw,
+                                           swt, trig))
+        p1 = multiprocessing.Process(target=self.__measure_scope,
+                                     args=(output_scope, channels))
+        p0.start()
+        p1.start()
+        p0.join()
+        p1.join()
+        data_scope = output_scope[0]
+        data_specAn = output_specAn[0]
+        time_scope = output_scope[1]
+        time_specAn = output_specAn[1]
+        del output_scope, output_specAn
+        return data_specAn, time_specAn, data_scope, time_scope
+
     def scan_k(self, k0: float = 10, k1: float = 0.01e6, steps: int = 50,
                channels: list = [1], center: float = 1e6, rbw: float = 100e3,
                vbw: float = 30, swt: float = 50e-3,
@@ -221,7 +280,7 @@ class Homodyne:
         :param float swt: Total measurement time
         :param bool trig: External trigger
         :return: data, time for data and time
-        :return: Array of spectra
+        :return: Array of spectra (channels, k_values, time)
         :rtype: np.ndarray
         """
         # check that the channels list provided is correct
