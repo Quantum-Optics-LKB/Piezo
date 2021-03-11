@@ -17,8 +17,9 @@ plt.ion()
 # piezo.disconnect()
 
 cam = EasyPySpin.VideoCapture(0)
-scope = None
+scope = USBScope(addr='USB0::0x1AB1::0x0514::DS7F222900085::INSTR')
 specAn = USBSpectrumAnalyzer(addr="USB0::6833::2400::DSA8A223200862::0::INSTR")
+# specAn = USBSpectrumAnalyzer()
 piezo = PiezoTIM101('65863991')
 pxpitch = 5.5e-6
 h = int(cam.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -34,14 +35,14 @@ if cont is not None:
     elec, time_e, lo_elec, time_lo_elec = setup.measure_once()
 else:
     sys.exit()
-cont = input("Electronic noise calibration recorded, press any key to" +
-             " continue ")
-cont = input("Vacuum calibration, block signal and press any key" +
-             " to continue ")
-if cont is not None:
-    vacuum, time_v, lo_vacuum, time_lo_vacuum = setup.specAn.zero_span()
-else:
-    sys.exit()
+# cont = input("Electronic noise calibration recorded, press any key to" +
+#              " continue ")
+# cont = input("Vacuum calibration, block signal and press any key" +
+#              " to continue ")
+# if cont is not None:
+#     vacuum, time_v, lo_vacuum, time_lo_vacuum = setup.specAn.zero_span()
+# else:
+#     sys.exit()
 # cont = input("Vacuum calibration recorded, press any key to" +
 #              " continue ")
 # if cont is not None:
@@ -51,10 +52,17 @@ else:
 piezo.disconnect()
 cam.release()
 specAn.close()
-
+scope.close()
+print('All instruments disconnected ! Goodbye !')
+elec = np.asarray(elec)
+indices = np.linspace(0, len(elec)-1, len(elec), dtype=int)
+lo_elec = np.asarray(lo_elec)
 # vacuum = np.asarray(vacuum)
 # spectra = np.asarray(spectra)
-# elec_in_V = np.exp(elec/10)
+elec_in_V = np.exp(elec/10)
+lo_elec_in_V = np.exp(lo_elec[0,indices]/10)
+plt.plot(time_e, elec_in_V)
+plt.plot(time_e, lo_elec_in_V)
 # vacuum_in_V = np.exp(vacuum/10)
 # spectra_in_V = np.exp(spectra/10) - vacuum_in_V - elec_in_V
 # spec_k = np.mean(spectra_in_V[0, :, :], axis=1)
@@ -65,5 +73,6 @@ specAn.close()
 # ax.set_ylabel("Signal in mV")
 # ax.plot(k_actual*1e-6, np.mean(vacuum_in_V)*np.ones(k_actual.shape))
 # ax.errorbar(k_actual*1e-6, spec_k*1e3, std)
-# plt.legend(["Noise", "Signal"])
-# plt.show()
+plt.legend(["Noise", "LO"])
+plt.yscale('log')
+plt.show()
