@@ -203,7 +203,7 @@ class Homodyne:
 
     def measure_once(self, channels: list = [1], center: float = 1e6,
                      rbw: int = 100, vbw: int = 30, swt: float = 50e-3,
-                     trig: bool = False) -> np.ndarray:
+                     trig: bool = True) -> np.ndarray:
         """
         Does a single noise measurement
         :param channels: channels list, defaults to [1]
@@ -226,9 +226,10 @@ class Homodyne:
         return data_specAn, time_specAn, data_scope, time_scope
 
     def scan_k(self, k0: float = 10, k1: float = 0.01e6, steps: int = 50,
-               channels: list = [1], center: float = 1e6, rbw: int = 100,
+               channels_p: list = [1], channels_s: list = [1],
+               center: float = 1e6, rbw: int = 100,
                vbw: int = 30, swt: float = 50e-3,
-               trig: bool = False) -> np.ndarray:
+               trig: bool = True) -> np.ndarray:
         """
         Scans the given k values and takes a spectrum for each k value
         :param k0: Start wavevector in m^{-1}, defaults to 0
@@ -237,7 +238,8 @@ class Homodyne:
         :type k1: float, optional
         :param steps: Number of steps, defaults to 50
         :type steps: int, optional
-        :param channels: channels list, defaults to [1]
+        :param channels_p: Piezo channels list, defaults to [1]
+        :param channels_s: Scope channels list, defaults to [1]
         :type channels: list, optional
         :param float center: Center frequency in Hz
         :param float rbw: Resolution bandwidth
@@ -249,33 +251,50 @@ class Homodyne:
         :rtype: np.ndarray
         """
         # check that the channels list provided is correct
-        if len(channels) > 4:
-            print("ERROR : Invalid channel list provided" +
+        if len(channels_p) > 4:
+            print("ERROR : Invalid piezo channel list provided" +
                   " (List too long)")
             sys.exit()
-        for chan in channels:
+        for chan in channels_p:
             if chan > 4:
-                print("ERROR : Invalid channel list provided" +
+                print("ERROR : Invalid piezo channel list provided" +
+                      " (Channels are 1,2,3,4)")
+                sys.exit()
+        # check that the channels list provided is correct
+        if len(channels_s) > 4:
+            print("ERROR : Invalid scope channel list provided" +
+                  " (List too long)")
+            sys.exit()
+        for chan in channels_s:
+            if chan > 4:
+                print("ERROR : Invalid scope channel list provided" +
                       " (Channels are 1,2,3,4)")
                 sys.exit()
         # puts the specAn in zero span mode and retrieve a spectrum to get the
         # data formats
         k_values = np.linspace(k0, k1, steps)
         k_actual = np.empty(k_values.shape)
-        data, time = self.specAn.zero_span(center, rbw, vbw, swt, trig)
-        spectra = np.empty((len(channels), len(k_values), len(time)))
-        for nbr, chan in enumerate(channels):
+        data, time, data_scope, time_scope = self.measure_once(channels_s,
+                                                               center, rbw,
+                                                               vbw, swt, True)
+
+        spectra = np.empty((len(channels_p), len(k_values), len(time)))
+        lo = np.empty((len(channels_p), len(k_values), len(time_scope)))
+        for nbr, chan in enumerate(channels_p):
             for counter_k, k in enumerate(k_values):
                 try:
                     k_actual[counter_k] = self.move_to_k(k, channels=[chan])
-                    data, time = self.specAn.zero_span(center, rbw, vbw, swt,
-                                                       trig)
+                    data, time, data_scope, time_scope = self.measure_once(
+                                                            channels_s, 
+                                                            center, rbw, vbw,
+                                                            swt, trig)
                     spectra[nbr, counter_k, :] = data
+                    lo[nbr, counter_k, :] = data_scope
                 except Exception:
                     print("ERROR : Could not move")
                     print(traceback.format_exc())
             self.piezo.move_to(chan, 0)
-        return spectra, time, k_actual
+        return spectra, time, lo, time_scope, k_actual
 
     def __get_visibility(frame, fft_side=None, fft_center=None,
                          fft_obj_s=None, ifft_obj_s=None, ifft_obj_c=None):
