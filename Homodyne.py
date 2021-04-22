@@ -86,7 +86,7 @@ class Homodyne:
         k_actual = K[maxi][0]
         if plot:
             fig0, ax = plt.subplots(1, 1)
-            ax.imshow(frame_calib, cmap="gray")
+            ax.imshow(frame, cmap="gray")
             ax.set_title(f"Captured frame : k = {k_actual*1e-6}"+
                          " $\\mu m^{-1}$")
         return k_actual
