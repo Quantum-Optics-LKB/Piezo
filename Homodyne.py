@@ -55,7 +55,42 @@ class Homodyne:
         conf.read("homodyne.conf")
         self.pos_to_k = [float(conf["Calib"][f"pos_to_k{n+1}"]) for n
                          in range(4)]
-
+        
+    def get_k_from_frame(self, pxpitch: float = 5.5e-6,
+                         plot=False) -> float:
+        """ Takes a picture of the fringes and returns the associated k value
+        :param float pxpitch: Camera pixel pitch, defaults to 5.5e-6
+        :param bool plot: Displays the captured frame, defaults to False
+        :return float: Analyzed k value = spatial frequency of the fringes
+        """
+        # Gets the camera size
+        h = int(self.cam.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        w = int(self.cam.get(cv2.CAP_PROP_FRAME_WIDTH))
+        kx = np.fft.fftfreq(w, pxpitch)
+        ky = np.fft.fftfreq(h, pxpitch)
+        Kx, Ky = np.meshgrid(kx, ky)
+        K = np.fft.fftshift(np.sqrt(Kx**2 + Ky**2))
+        roi = K > 6e2  # hardcoded, not great
+        ret = False
+        tries = 0
+        while ret is False and tries < 10:
+            ret, frame_calib = self.cam.read()
+            tries += 1
+        if ret is False:
+            print("ERROR : Could not grab frame")
+            sys.exit()
+        frame_fft = np.fft.fftshift(np.fft.fft2(frame))
+        roi = K > 6e2
+        im_filt = np.abs(frame_fft)*roi
+        maxi = np.where(im_filt == np.max(im_filt))
+        k_actual = K[maxi][0]
+        if plot:
+            fig0, ax = plt.subplots(1, 1)
+            ax.imshow(frame_calib, cmap="gray")
+            ax.set_title(f"Captured frame : k = {k_actual*1e-6}"+
+                         " $\\mu m^{-1}$")
+        return k_actual
+        
     def calib_fringes(self, channel: int = 1, start: int = 100,
                       stop: int = 10000, steps: int = 200,
                       pxpitch: float = 5.5e-6, plot=False) -> np.ndarray:
@@ -65,6 +100,8 @@ class Homodyne:
         :param int start: Start position of the piezo
         :param int stop: Stop position of the piezo
         :param float pxpitch: Pixel pitch of the camera
+        :param bool plot: Displays the capture images every 10 step, defaults
+        to false
         :return: Description of returned object.
         :rtype: np.ndarray
         """
