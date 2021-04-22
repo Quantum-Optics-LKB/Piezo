@@ -74,7 +74,7 @@ class Homodyne:
         ret = False
         tries = 0
         while ret is False and tries < 10:
-            ret, frame_calib = self.cam.read()
+            ret, frame = self.cam.read()
             tries += 1
         if ret is False:
             print("ERROR : Could not grab frame")
