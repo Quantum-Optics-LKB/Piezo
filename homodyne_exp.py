@@ -7,6 +7,7 @@ from piezo import PiezoTIM101
 from Homodyne import Homodyne
 import os
 import sys
+import time
 
 plt.switch_backend('Qt5Agg')
 plt.ion()
@@ -29,6 +30,10 @@ ky = np.fft.fftfreq(h, pxpitch)*1e-6
 setup = Homodyne(piezo, specAn, scope, cam)
 # positions, k_mirror = setup.calib_fringes(start=100, stop=60000, steps=100, plot=True)
 # setup.move_to_k(0.005e6)
+# print("Capturing a frame to measure probe's k ...")
+# k_probe = setup.get_k_from_frame()
+k_probe = 0.009868789407128323*1e6
+# print(f"Done ! Probe k = {k_probe*1e-6} um^-1")
 cont = input("Electronic noise calibration, block diodes and press any key" +
              " to continue ")
 if cont is not None:
@@ -90,7 +95,8 @@ ax[1].set_xlabel("Wavevector in $\\mu m^{-1}$")
 ax[1].set_ylabel("Signal in V")
 ax[0].plot(k_actual*1e-6, np.mean(vacuum_in_V)*1e3*np.ones(k_actual.shape))
 ax[0].errorbar(k_actual*1e-6, spec_k*1e3, std)
-ax[0].legend(["Vacuum", "Signal"])
+ax[0].axvline(x=-k_probe*1e-6, linestyle='dashed')
+ax[0].legend(["Vacuum", "Probe k", "Signal"])
 ax[0].set_yscale('log')
 ax[0].set_title("Signal power")
 ax[1].plot(k_actual*1e-6, lo_k)
