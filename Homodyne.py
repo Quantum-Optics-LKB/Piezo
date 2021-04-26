@@ -89,6 +89,7 @@ class Homodyne:
             ax.imshow(frame, cmap="gray")
             ax.set_title(f"Captured frame : k = {k_actual*1e-6}"+
                          " $\\mu m^{-1}$")
+            plt.show(block=True)
         return k_actual
         
     def calib_fringes(self, channel: int = 1, start: int = 100,
