@@ -55,7 +55,7 @@ class Homodyne:
         conf.read("homodyne.conf")
         self.pos_to_k = [float(conf["Calib"][f"pos_to_k{n+1}"]) for n
                          in range(4)]
-        
+
     def get_k_from_frame(self, pxpitch: float = 5.5e-6,
                          plot=False) -> float:
         """ Takes a picture of the fringes and returns the associated k value
@@ -91,7 +91,7 @@ class Homodyne:
                          " $\\mu m^{-1}$")
             plt.show(block=True)
         return k_actual
-        
+
     def calib_fringes(self, channel: int = 1, start: int = 100,
                       stop: int = 10000, steps: int = 200,
                       pxpitch: float = 5.5e-6, plot=False) -> np.ndarray:
@@ -256,12 +256,56 @@ class Homodyne:
         :rtype: np.ndarray
         """
         # measure first with the scope then stop measurement, as the SpecAn
-        # is triggered by the output trigger of the scope, the SpecAn will 
+        # is triggered by the output trigger of the scope, the SpecAn will
         # keep the right trace
         data_scope, time_scope = self.scope.get_waveform(channels)
         data_specAn, time_specAn = self.specAn.zero_span(center, rbw, vbw, swt,
                                                          trig)
         return data_specAn, time_specAn, data_scope, time_scope
+
+    def scan_f(self, f0: float = 1e6, f1: float = 45e6, steps: int = 50,
+               channels_s: list = [1], rbw: int = 100,
+               vbw: int = 30, swt: float = 50e-3,
+               trig: bool = True) -> np.ndarray:
+        """Frequency scan i.e scan over kz'. Scans the zero span center.
+
+        :param float f0: Start frequency in Hz
+        :param float f1: Stop frequency in Hz
+        :param int steps: Number of steps
+        :param list channels_s: Scope channels to record
+        :param int rbw: Resolution bandwidth
+        :param int vbw: Video bandwidth
+        :param float swt: Signal waiting time
+        :param bool trig: External trigger of the SpecAn
+        :return: Array of spectra, time, scope measures, and time of scope
+        :rtype: np.ndarray
+
+        """
+        # check that the channels list provided is correct
+        if len(channels_s) > 4:
+            print("ERROR : Invalid scope channel list provided" +
+                  " (List too long)")
+            sys.exit()
+        for chan in channels_s:
+            if chan > 4:
+                print("ERROR : Invalid scope channel list provided" +
+                      " (Channels are 1,2,3,4)")
+                sys.exit()
+        freqs = np.linspace(f0, f1, steps)
+        # do one measurement to retrieve relevant sizes
+        data, time, data_scope, time_scope = self.measure_once(channels_s,
+                                                               freqs[0], rbw,
+                                                               vbw, swt, True)
+        spectras = np.zeros(len(freqs), len(time))
+        datas_scope = np.zeros(len(freqs), len(channels_s), len(time_scope))
+        for counter, freq in enumerate(freqs):
+            data, time, data_scope, time_scope = self.measure_once(channels_s,
+                                                                   freq, rbw,
+                                                                   vbw, swt,
+                                                                   trig)
+            spectras[counter, :] = data
+            datas_scope[counter, :, :] = data_scope
+        return spectras, time, datas_scope, time_scope
 
     def scan_k(self, k0: float = 10, k1: float = 0.01e6, steps: int = 50,
                channels_p: list = [1], channels_s: list = [1],
@@ -285,7 +329,8 @@ class Homodyne:
         :param float swt: Total measurement time
         :param bool trig: External trigger
         :return: data, time for data and time
-        :return: Array of spectra (channels, k_values, time)
+        :return: Array of spectra (channels, k_values, time), LO values, time,
+        and actual k values
         :rtype: np.ndarray
         """
         # check that the channels list provided is correct
@@ -323,7 +368,7 @@ class Homodyne:
                 try:
                     k_actual[counter_k] = self.move_to_k(k, channels=[chan])
                     data, time, data_scope, time_scope = self.measure_once(
-                                                            channels_s, 
+                                                            channels_s,
                                                             center, rbw, vbw,
                                                             swt, trig)
                     spectra[nbr, counter_k, :] = data

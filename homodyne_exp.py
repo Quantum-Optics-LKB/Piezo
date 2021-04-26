@@ -5,9 +5,8 @@ import matplotlib.pyplot as plt
 from ScopeInterface import USBScope, USBSpectrumAnalyzer
 from piezo import PiezoTIM101
 from Homodyne import Homodyne
-import os
 import sys
-import time
+import time_s
 
 plt.switch_backend('Qt5Agg')
 plt.ion()
@@ -51,10 +50,11 @@ else:
 cont = input("Vacuum calibration recorded unblock signal and press any key" +
              " to continue ")
 if cont is not None:
-    spectra, time, lo, time_scope, k_actual = setup.scan_k(k0=-10, 
-                                                           k1=-0.02e6,
-                                                           steps=150,
-                                                           rbw=300e3, vbw=300)
+    # spectra, time_s, lo, time_scope, k_actual = setup.scan_k(k0=-10,
+    #                                                        k1=-0.02e6,
+    #                                                        steps=150,
+    #                                                        rbw=300e3, vbw=300)
+    spectra, time_s, lo, time_scope = setup.scan_f(rbw=300e3, vbw=300)
 else:
     sys.exit()
 piezo.disconnect()
@@ -72,33 +72,56 @@ elec_in_V = np.exp(elec/10)
 vacuum_in_V = np.exp(vacuum/10) - elec_in_V
 lo_vacuum_in_V = np.exp(lo_vacuum[indices]/10)
 spectra_in_V = np.exp(spectra/10) - elec_in_V
-lo_in_V = np.exp(lo[:, :, indices]/10) - elec_in_V
+# lo_in_V = np.exp(lo[:, :, indices]/10) - elec_in_V
+lo_in_V = np.exp(lo[:, indices]/10) - elec_in_V
+
 # plt.plot(time_e, elec_in_V)
 # plt.plot(time_e, vacuum_in_V)
 # plt.plot(time_e, lo_vacuum_in_V)
-plt.plot(time, spectra_in_V[0, 27, :])
-# plt.plot(time, lo_in_V[0, 0, :])
+# plt.plot(time_s, spectra_in_V[0, 27, :])
+plt.plot(time_s, spectra_in_V[0, :])
+freqs = np.linspace(1e6, 45e6, 50)
+# plt.plot(time_s, lo_in_V[0, 0, :])
 # plt.legend(["Spectrum", "LO"])
-plt.title(f"Spectrum at k = {np.round(k_actual[27]*1e-6, decimals=6)}" +
-          " $\\mu m^{-1}$")
+# plt.title(f"Spectrum at k = {np.round(k_actual[27]*1e-6, decimals=6)}" +
+#           " $\\mu m^{-1}$")
+plt.title(f"Spectrum at f = {freqs[0]*1e-6} MHz")
 plt.xlabel("Time in s")
 plt.ylabel("Signal in V")
 plt.show()
-spec_k = np.mean(spectra_in_V[0, :, :], axis=1)
-lo_k = np.mean(lo_in_V[0, :, :], axis=1)
-std = np.std(spectra_in_V[0, :, :], axis=1)
+# spec_k = np.mean(spectra_in_V[0, :, :], axis=1)
+# lo_k = np.mean(lo_in_V[0, :, :], axis=1)
+# std = np.std(spectra_in_V[0, :, :], axis=1)
+# fig, ax = plt.subplots(1, 2)
+# fig.suptitle("Noise spectrum vs LO angle")
+# ax[0].set_xlabel("Wavevector in $\\mu m^{-1}$")
+# ax[0].set_ylabel("Signal in mV")
+# ax[1].set_xlabel("Wavevector in $\\mu m^{-1}$")
+# ax[1].set_ylabel("Signal in V")
+# ax[0].plot(k_actual*1e-6, np.mean(vacuum_in_V)*1e3*np.ones(k_actual.shape))
+# ax[0].errorbar(k_actual*1e-6, spec_k*1e3, std)
+# ax[0].axvline(x=-k_probe*1e-6, linestyle='dashed')
+# ax[0].legend(["Vacuum", "Probe k", "Signal"])
+# ax[0].set_yscale('log')
+# ax[0].set_title("Signal power")
+# ax[1].plot(k_actual*1e-6, lo_k)
+# ax[1].set_title("CH1 power in V")
+# plt.show()
+
+spec_f = np.mean(spectra_in_V, axis=1)
+lo_f = np.mean(lo_in_V, axis=1)
+std = np.std(spectra_in_V, axis=1)
 fig, ax = plt.subplots(1, 2)
-fig.suptitle("Noise spectrum vs LO angle")
-ax[0].set_xlabel("Wavevector in $\\mu m^{-1}$")
+fig.suptitle("Noise spectrum vs frequency")
+ax[0].set_xlabel("Zero span center frequency in MHz")
 ax[0].set_ylabel("Signal in mV")
-ax[1].set_xlabel("Wavevector in $\\mu m^{-1}$")
+ax[1].set_xlabel("Zero span center frequency in MHz")
 ax[1].set_ylabel("Signal in V")
-ax[0].plot(k_actual*1e-6, np.mean(vacuum_in_V)*1e3*np.ones(k_actual.shape))
-ax[0].errorbar(k_actual*1e-6, spec_k*1e3, std)
-ax[0].axvline(x=-k_probe*1e-6, linestyle='dashed')
-ax[0].legend(["Vacuum", "Probe k", "Signal"])
+ax[0].plot(freqs*1e-6, np.mean(vacuum_in_V)*1e3*np.ones(freqs.shape))
+ax[0].errorbar(freqs*1e-6, spec_f*1e3, std)
+ax[0].legend(["Vacuum", "Signal"])
 ax[0].set_yscale('log')
 ax[0].set_title("Signal power")
-ax[1].plot(k_actual*1e-6, lo_k)
+ax[1].plot(freqs*1e-6, lo_f)
 ax[1].set_title("CH1 power in V")
 plt.show()
