@@ -217,7 +217,7 @@ class Piezo3Axis():
 class PiezoTIM101:
 
     def __init__(self, serial: str = None):
-        """Instantiates a PiezoScrew object to control piezo mirror screws
+        """Instantiates a PiezoTIM object to control piezo mirror screws
 
         :param str serial: Piezo serial number
         :return: PiezoScrew object
