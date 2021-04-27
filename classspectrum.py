@@ -74,7 +74,7 @@ class DisplaySpectrum:
         #omega = 2*np.pi*np.linspace(-5e9, 5e9, 3000)     # useless to touch it
         return omega
 
-    def fracRb(self, frac, temp, omega,deg):
+    def fracRb(self, frac, temp, omega, deg):
         """
         DESCRIPTION:
         PARAMS:         frac-> percent of Rb85/Rb87
@@ -82,10 +82,11 @@ class DisplaySpectrum:
                         deg-> degeneracy of the ground state according to the isotope : 8 for 87 and 12 for 85
         RETURNS:        Float
         """
-        N = frac*Ndensity(temp, omega,deg)
+        N = frac*Ndensity(temp, omega, deg)
         return N
 
-    def imaginaryPartOfSusceptibility(self, C_f, frac, temp,omega, detuning, deg):
+    def imaginaryPartOfSusceptibility(self, C_f, frac, temp, omega, detuning,
+                                      deg):
         """
         DESCRIPTION:    I think the desc is in function.
         PARAMS:         C_f->C_f^2 is the transition coefficient
@@ -97,7 +98,7 @@ class DisplaySpectrum:
         RETURNS:        1darray
         """
 
-        N = self.fracRb(frac, temp, omega,deg)
+        N = self.fracRb(frac, temp, omega, deg)
         delta = 2*np.pi*(omega - detuning)
         voigt_arg = (self.gamma - 1j * delta) / varsigma(temp)
         absorption = C_f*(N * (self.d ** 2) * np.sqrt(np.pi) / (self.h * self.eps_zero *varsigma(temp))) * V(voigt_arg).imag

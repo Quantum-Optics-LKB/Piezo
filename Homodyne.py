@@ -17,7 +17,7 @@ import configparser
 import traceback
 import scipy.fft as fft
 import pyfftw
-from scipy.optimize import curve_fit, minimize
+from scipy.optimize import curve_fit
 # from scipy.signal import savgol_filter, find_peaks, correlate
 from classspectrum import DisplaySpectrum
 import scipy.constants as cst
