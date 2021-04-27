@@ -43,14 +43,12 @@ class Homodyne:
                  scope: USBScope, cam: EasyPySpin.VideoCapture):
         """Instantiates the homodyne setup with a piezo to move the LO angle,
         a spectrum analyzer, an oscilloscope and a camera.
-
         :param PiezoTIM101 piezo: Piezo to jog
         :param USBSpectrumAnalyzer specAn: spectrum analyzer
         :param USBScope scope: oscilloscope
         :param EasyPySpin cam: camera, EasyPySpin instance
         :return: Homodyne object
         :rtype: Homodyne
-
         """
 
         self.piezo = piezo
@@ -67,7 +65,6 @@ class Homodyne:
     def get_cell_temp(self, trans: int = 1, norm: int = 3, fp: int = 4,
                       plot: bool = True) -> float:
         """Fits the cell temperature from a low power transmission scan
-
         :param int trans: Transmission channel
         :param int norm: Normalization channel
         :param int fp: Fabry Perot reference channel
@@ -75,32 +72,30 @@ class Homodyne:
         results
         :return: Temperature in K
         :rtype: float
-
         """
         # tuple of traces from scope
-        Data, Time = self.scope.get_waveform(channels=[trans, fp, norm])
+        Data, Time = self.scope.get_waveform(channels=[trans, norm, fp])
         # trace from input
-        transmitted, time_t = Data[0, :], Time[0, :]
-        # trace from FP resonator
-        trans_fp, time_fp = Data[2, :], Time[2, :]
+        transmitted_r, time_t = Data[0, :], Time[0, :]
         # trace from normalization
         normalization, time_norm = Data[1, :], Time[1, :]
+        # trace from FP resonator
+        trans_fp_r, time_fp = Data[2, :], Time[2, :]
         # normalize absorption profile
+        transmitted = np.copy(transmitted_r)
+        transmitted /= normalization
         transmitted /= np.max(transmitted)
-        transmitted /= normalization/np.max(normalization)
         # normalize FP transmission
-        trans_fp /= trans_fp/np.max(trans_fp)
+        trans_fp = trans_fp_r/np.max(trans_fp_r)
         # fit fp transmission to retrieve frequency axis
 
         def fit_fp(time: float, a: float, offset: float) -> float:
             """Fitting function to retrieve the conversion from time to Hz
-
             :param type time: Input time vector
             :param type a: second to Hz conversion
             :param type offset: offset
             :return: Theoritical transmission through FP
             :rtype: float
-
             """
             L = 21.413747e-2 # oscillator length
             R = 0.96
@@ -110,18 +105,16 @@ class Homodyne:
 
         def lambda_from_fp(T: np.ndarray) -> float:
             """Retrieve lambda from the transmission of the FP cavity
-
             :param np.ndarray T: Transmission of the FP
             :return: Wavelength in m
             :rtype: float
-
             """
             # l = 21.413747e-2
             # lamb = 2*np.pi*l
             # lamb /= np.arcsin(np.sqrt((1/T)-1))
             # return lamb
             fitted_fp = curve_fit(fit_fp, time_fp, trans_fp)
-            a, offset = fitted_fp[0], fitted_fp[1]
+            a, offset = fitted_fp[0][0], fitted_fp[0][1]
             lamb = a*time_fp + offset
             return lamb
         # convert trans_fp to lambda
@@ -130,46 +123,49 @@ class Homodyne:
 
         def fit_temp(lamb, T, offset):
             """Temperature fitting function
-
             :param type lamb: Wavelength
             :param type T: Temperature
             :param type offset: Offset
             :return: Theoritical transmission through the cell
             :rtype: type
-
             """
             omega = 2*np.pi*cst.c/(lamb+offset)
             return ds.transmission(self.cell_fraction, T, self.cell_length,
                                    omega)
 
         temperature_fit = curve_fit(fit_temp, lambdas, transmitted, p0=[390, 780e-9])
-        T_fit = temperature_fit[0]
-        offset = temperature_fit[1]
+        T_fit = temperature_fit[0][0]
+        offset = temperature_fit[0][1]
         # convert wavelengths to detunings for plotting
         dets = cst.c/(lambdas+offset) - 384.230406373e12
         if plot:
-            fig, ax = plt.subplots(1, 2)
-            ax[0].plot(dets*1e-6, transmitted, ls='-', color='b')
-            ax[0].plot(dets*1e-6, fit_temp(lambdas, T_fit), ls='--', color='r')
-            ax[0].legend(["Exp", "Fit"])
-            ax[0].set_title(f"Fitted temperature T = {T_fit-273.15} °C")
-            ax[0].set_xlabel("Detuning $\\Delta$ in MHz ")
-            ax[0].set_ylabel("Transmission")
-            ax[1].plot(dets*1e-6, trans_fp)
-            ax[1].set_title("Fabry Pérot transmission")
+            fig, ax = plt.subplots(1, 3)
+            ax[0].plot(time_t*1e3, transmitted_r)
+            ax[0].plot(time_norm*1e3, normalization)
+            ax[0].plot(time_fp*1e3, trans_fp_r)
+            ax[0].legend(["Transmission", "Normalization", "Fabry Pérot"])
+            ax[0].set_title("Raw oscilloscope signal")
+            ax[0].set_xlabel("Time in ms")
+            ax[0].set_ylabel("Signal in V")
+            ax[1].plot(dets*1e-6, transmitted, ls='-', color='b')
+            ax[1].plot(dets*1e-6, fit_temp(lambdas, T_fit, offset), ls='--', color='r')
+            ax[1].legend(["Exp", "Fit"])
+            ax[1].set_title(f"Fitted temperature T = {T_fit-273.15} °C")
             ax[1].set_xlabel("Detuning $\\Delta$ in MHz ")
             ax[1].set_ylabel("Transmission")
+            ax[2].plot(dets*1e-6, trans_fp)
+            ax[2].set_title("Fabry Pérot transmission")
+            ax[2].set_xlabel("Detuning $\\Delta$ in MHz ")
+            ax[2].set_ylabel("Transmission")
             plt.show()
         return T_fit
 
     def get_k_from_frame(self, pxpitch: float = 5.5e-6,
                          plot=False) -> float:
         """ Takes a picture of the fringes and returns the associated k value
-
         :param float pxpitch: Camera pixel pitch, defaults to 5.5e-6
         :param bool plot: Displays the captured frame, defaults to False
         :return float: Analyzed k value = spatial frequency of the fringes
-
         """
         # Gets the camera size
         h = int(self.cam.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -204,7 +200,6 @@ class Homodyne:
                       stop: int = 10000, steps: int = 200,
                       pxpitch: float = 5.5e-6, plot=False) -> np.ndarray:
         """Function to calibrate the k values accessed by the local oscillator
-
         :param PiezoTIM101 piezo: piezo to actuate
         :param int channel: Piezo channel to actuate
         :param int start: Start position of the piezo
@@ -214,7 +209,6 @@ class Homodyne:
         to false
         :return: Description of returned object.
         :rtype: np.ndarray
-
         """
         # Gets the camera size
         h = int(self.cam.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -322,14 +316,12 @@ class Homodyne:
     def move_to_k(self, k: float, channels: list = [1]) -> float:
         """
         Moves the LO to a specified k value
-
         :param k: Wavevector in m^{-1}
         :type k: float
         :param channels: Channels to move, defaults to [1]
         :type channels: list, optional
         :return: k_actual the actual angle reached
         :rtype: float
-
         """
         # check that the channels list provided is correct
         if len(channels) > 4:
@@ -355,7 +347,6 @@ class Homodyne:
                      trig: bool = True) -> np.ndarray:
         """
         Does a single noise measurement
-
         :param channels: channels list, defaults to [1]
         :type channels: list, optional
         :param float center: Center frequency in Hz
@@ -366,7 +357,6 @@ class Homodyne:
         :return: data, time for data and time
         :return: Tuple of spectrum / LO power ((channels, time), (LO, time_LO))
         :rtype: np.ndarray
-
         """
         # measure first with the scope then stop measurement, as the SpecAn
         # is triggered by the output trigger of the scope, the SpecAn will
@@ -381,7 +371,6 @@ class Homodyne:
                vbw: int = 30, swt: float = 50e-3,
                trig: bool = True) -> np.ndarray:
         """Frequency scan i.e scan over kz'. Scans the zero span center.
-
         :param float f0: Start frequency in Hz
         :param float f1: Stop frequency in Hz
         :param int steps: Number of steps
@@ -392,7 +381,6 @@ class Homodyne:
         :param bool trig: External trigger of the SpecAn
         :return: Array of spectra, time, scope measures, and time of scope
         :rtype: np.ndarray
-
         """
         # check that the channels list provided is correct
         if len(channels_s) > 4:
@@ -427,7 +415,6 @@ class Homodyne:
                trig: bool = True) -> np.ndarray:
         """
         Scans the given k values and takes a spectrum for each k value
-
         :param k0: Start wavevector in m^{-1}, defaults to 0
         :type k0: float, optional
         :param k1: Stop wavevector in m^{-1}, defaults to 0.001e6
@@ -446,7 +433,6 @@ class Homodyne:
         :return: Array of spectra (channels, k_values, time), LO values, time,
         and actual k values
         :rtype: np.ndarray
-
         """
         # check that the channels list provided is correct
         if len(channels_p) > 4:
@@ -497,7 +483,6 @@ class Homodyne:
     def __get_visibility(frame, fft_side=None, fft_center=None,
                          fft_obj_s=None, ifft_obj_s=None, ifft_obj_c=None):
         """Gets the visibility of a given fringe pattern using Fourier filtering
-
         :param np.ndarray frame: Fringe pattern.
         :param pyfftw.empty_aligned fft_side: Array to perform fft on for side
             peak.
@@ -508,18 +493,15 @@ class Homodyne:
         :param pyfftw.FFTW ifft_obj_c: Fft instance for the center peak
         :return: Max of visibility and visibility map
         :rtype: (float, np.ndarray[np.float32, ndim=2])
-
         """
         def shift5(arr, numi, numj, fill_value=0):
             """Fast array shifting
-
             :param np.ndarray arr: Array to shift
             :param int numi: Pixel to shift for row number
             :param int numj: Pixel to shift for column number
             :param fill_value: Filling value
             :return: The shifted array
             :rtype: depends on fill value type np.ndarray[np.float32, ndim=2]
-
             """
             result = np.empty_like(arr)
             if numi > 0:
@@ -582,10 +564,8 @@ class Homodyne:
         """Monitor fringe visibility with a live view of the camera. Will
         display a window with a preview of the camera, the visibility and
         dynamic graph of the maximum visibility
-
         :return: None
         :rtype: Nonetype
-
         """
         h = int(self.cam.get(cv2.CAP_PROP_FRAME_HEIGHT))
         w = int(self.cam.get(cv2.CAP_PROP_FRAME_WIDTH))
