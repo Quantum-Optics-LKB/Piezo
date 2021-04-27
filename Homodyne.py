@@ -17,11 +17,15 @@ import configparser
 import traceback
 import scipy.fft as fft
 import pyfftw
+from scipy.optimize import curve_fit, minimize
+# from scipy.signal import savgol_filter, find_peaks, correlate
+from classspectrum import DisplaySpectrum
+import scipy.constants as cst
 
 plt.switch_backend('Qt5Agg')
 plt.ion()
 
-
+ds = DisplaySpectrum()
 def mypause(interval):
     backend = plt.rcParams['backend']
     if backend in matplotlib.rcsetup.interactive_bk:
@@ -39,12 +43,14 @@ class Homodyne:
                  scope: USBScope, cam: EasyPySpin.VideoCapture):
         """Instantiates the homodyne setup with a piezo to move the LO angle,
         a spectrum analyzer, an oscilloscope and a camera.
+
         :param PiezoTIM101 piezo: Piezo to jog
         :param USBSpectrumAnalyzer specAn: spectrum analyzer
         :param USBScope scope: oscilloscope
         :param EasyPySpin cam: camera, EasyPySpin instance
         :return: Homodyne object
         :rtype: Homodyne
+
         """
 
         self.piezo = piezo
@@ -55,13 +61,115 @@ class Homodyne:
         conf.read("homodyne.conf")
         self.pos_to_k = [float(conf["Calib"][f"pos_to_k{n+1}"]) for n
                          in range(4)]
+        self.cell_fraction = float(conf["Cell"]["fraction"])
+        self.cell_length = float(conf["Cell"]["length"])
+
+    def get_cell_temp(self, trans: int = 1, norm: int = 3, fp: int = 4,
+                      plot: bool = True) -> float:
+        """Fits the cell temperature from a low power transmission scan
+
+        :param int trans: Transmission channel
+        :param int norm: Normalization channel
+        :param int fp: Fabry Perot reference channel
+        :param bool plot: Plots the absorption spectrum as well as the fitting
+        results
+        :return: Temperature in K
+        :rtype: float
+
+        """
+        # tuple of traces from scope
+        Data, Time = self.scope.get_waveform(channels=[trans, fp, norm])
+        # trace from input
+        transmitted, time_t = Data[0, :], Time[0, :]
+        # trace from FP resonator
+        trans_fp, time_fp = Data[2, :], Time[2, :]
+        # trace from normalization
+        normalization, time_norm = Data[1, :], Time[1, :]
+        # normalize absorption profile
+        transmitted /= np.max(transmitted)
+        transmitted /= normalization/np.max(normalization)
+        # normalize FP transmission
+        trans_fp /= trans_fp/np.max(trans_fp)
+        # fit fp transmission to retrieve frequency axis
+
+        def fit_fp(time: float, a: float, offset: float) -> float:
+            """Fitting function to retrieve the conversion from time to Hz
+
+            :param type time: Input time vector
+            :param type a: second to Hz conversion
+            :param type offset: offset
+            :return: Theoritical transmission through FP
+            :rtype: float
+
+            """
+            L = 21.413747e-2 # oscillator length
+            R = 0.96
+            F = 4*R/((1-R)**2)
+            T = 1/(1+F*np.sin(2*np.pi*L/(a*time + offset))**2)
+            return T
+
+        def lambda_from_fp(T: np.ndarray) -> float:
+            """Retrieve lambda from the transmission of the FP cavity
+
+            :param np.ndarray T: Transmission of the FP
+            :return: Wavelength in m
+            :rtype: float
+
+            """
+            # l = 21.413747e-2
+            # lamb = 2*np.pi*l
+            # lamb /= np.arcsin(np.sqrt((1/T)-1))
+            # return lamb
+            fitted_fp = curve_fit(fit_fp, time_fp, trans_fp)
+            a, offset = fitted_fp[0], fitted_fp[1]
+            lamb = a*time_fp + offset
+            return lamb
+        # convert trans_fp to lambda
+        lambdas = lambda_from_fp(trans_fp)
+        # fit temperature
+
+        def fit_temp(lamb, T, offset):
+            """Temperature fitting function
+
+            :param type lamb: Wavelength
+            :param type T: Temperature
+            :param type offset: Offset
+            :return: Theoritical transmission through the cell
+            :rtype: type
+
+            """
+            omega = 2*np.pi*cst.c/(lamb+offset)
+            return ds.transmission(self.cell_fraction, T, self.cell_length,
+                                   omega)
+
+        temperature_fit = curve_fit(fit_temp, lambdas, transmitted, p0=[390, 780e-9])
+        T_fit = temperature_fit[0]
+        offset = temperature_fit[1]
+        # convert wavelengths to detunings for plotting
+        dets = cst.c/(lambdas+offset) - 384.230406373e12
+        if plot:
+            fig, ax = plt.subplots(1, 2)
+            ax[0].plot(dets*1e-6, transmitted, ls='-', color='b')
+            ax[0].plot(dets*1e-6, fit_temp(lambdas, T_fit), ls='--', color='r')
+            ax[0].legend(["Exp", "Fit"])
+            ax[0].set_title(f"Fitted temperature T = {T_fit-273.15} °C")
+            ax[0].set_xlabel("Detuning $\\Delta$ in MHz ")
+            ax[0].set_ylabel("Transmission")
+            ax[1].plot(dets*1e-6, trans_fp)
+            ax[1].set_title("Fabry Pérot transmission")
+            ax[1].set_xlabel("Detuning $\\Delta$ in MHz ")
+            ax[1].set_ylabel("Transmission")
+            plt.show()
+        return T_fit
 
     def get_k_from_frame(self, pxpitch: float = 5.5e-6,
                          plot=False) -> float:
         """ Takes a picture of the fringes and returns the associated k value
+
         :param float pxpitch: Camera pixel pitch, defaults to 5.5e-6
         :param bool plot: Displays the captured frame, defaults to False
         :return float: Analyzed k value = spatial frequency of the fringes
+
         """
         # Gets the camera size
         h = int(self.cam.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -96,6 +204,7 @@ class Homodyne:
                       stop: int = 10000, steps: int = 200,
                       pxpitch: float = 5.5e-6, plot=False) -> np.ndarray:
         """Function to calibrate the k values accessed by the local oscillator
+
         :param PiezoTIM101 piezo: piezo to actuate
         :param int channel: Piezo channel to actuate
         :param int start: Start position of the piezo
@@ -105,6 +214,7 @@ class Homodyne:
         to false
         :return: Description of returned object.
         :rtype: np.ndarray
+
         """
         # Gets the camera size
         h = int(self.cam.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -212,12 +322,14 @@ class Homodyne:
     def move_to_k(self, k: float, channels: list = [1]) -> float:
         """
         Moves the LO to a specified k value
+
         :param k: Wavevector in m^{-1}
         :type k: float
         :param channels: Channels to move, defaults to [1]
         :type channels: list, optional
         :return: k_actual the actual angle reached
         :rtype: float
+
         """
         # check that the channels list provided is correct
         if len(channels) > 4:
@@ -238,12 +350,12 @@ class Homodyne:
             sys.stdout.write(f", k = {prt} um^-1")
             return k_actual
 
-
     def measure_once(self, channels: list = [1], center: float = 1e6,
                      rbw: int = 100, vbw: int = 30, swt: float = 50e-3,
                      trig: bool = True) -> np.ndarray:
         """
         Does a single noise measurement
+
         :param channels: channels list, defaults to [1]
         :type channels: list, optional
         :param float center: Center frequency in Hz
@@ -254,6 +366,7 @@ class Homodyne:
         :return: data, time for data and time
         :return: Tuple of spectrum / LO power ((channels, time), (LO, time_LO))
         :rtype: np.ndarray
+
         """
         # measure first with the scope then stop measurement, as the SpecAn
         # is triggered by the output trigger of the scope, the SpecAn will
@@ -314,6 +427,7 @@ class Homodyne:
                trig: bool = True) -> np.ndarray:
         """
         Scans the given k values and takes a spectrum for each k value
+
         :param k0: Start wavevector in m^{-1}, defaults to 0
         :type k0: float, optional
         :param k1: Stop wavevector in m^{-1}, defaults to 0.001e6
@@ -332,6 +446,7 @@ class Homodyne:
         :return: Array of spectra (channels, k_values, time), LO values, time,
         and actual k values
         :rtype: np.ndarray
+
         """
         # check that the channels list provided is correct
         if len(channels_p) > 4:
