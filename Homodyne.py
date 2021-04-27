@@ -21,6 +21,8 @@ from scipy.optimize import curve_fit
 # from scipy.signal import savgol_filter, find_peaks, correlate
 from classspectrum import DisplaySpectrum
 import scipy.constants as cst
+from scipy.ndimage import gaussian_filter1d
+
 
 plt.switch_backend('Qt5Agg')
 plt.ion()
@@ -85,43 +87,31 @@ class Homodyne:
         transmitted = np.copy(transmitted_r)
         transmitted /= normalization
         transmitted /= np.max(transmitted)
+        transmitted_filt = gaussian_filter1d(transmitted, 5)
         # normalize FP transmission
         trans_fp = trans_fp_r/np.max(trans_fp_r)
         # fit fp transmission to retrieve frequency axis
 
-        def fit_fp(time: float, a: float, offset: float) -> float:
-            """Fitting function to retrieve the conversion from time to Hz
-            :param type time: Input time vector
-            :param type a: second to Hz conversion
-            :param type offset: offset
-            :return: Theoritical transmission through FP
-            :rtype: float
-            """
-            L = 21.413747e-2 # oscillator length
-            R = 0.96
-            F = 4*R/((1-R)**2)
-            T = 1/(1+F*np.sin(2*np.pi*L/(a*time + offset))**2)
-            return T
-
-        def lambda_from_fp(T: np.ndarray) -> float:
+        def freqs_from_fp(T: np.ndarray) -> float:
             """Retrieve lambda from the transmission of the FP cavity
             :param np.ndarray T: Transmission of the FP
             :return: Wavelength in m
             :rtype: float
             """
-            # l = 21.413747e-2
-            # lamb = 2*np.pi*l
-            # lamb /= np.arcsin(np.sqrt((1/T)-1))
-            # return lamb
-            fitted_fp = curve_fit(fit_fp, time_fp, trans_fp)
-            a, offset = fitted_fp[0][0], fitted_fp[0][1]
-            lamb = a*time_fp + offset
-            return lamb
+            # this is ugly bc of the hardcoded values for find_peaks ...
+            peaks = find_peaks(trans_fp, height=0.5, distance=40)[0]
+            # define frequencies from FSR of FP cavity
+            freqs_samples = 0.7e9 * np.linspace(0, len(peaks)-1, len(peaks))
+            interp = interp1d(time_fp[peaks], freqs_samples, fill_value='extrapolate')
+            # interpolate to get full frequency curve
+            freqs = interp(time_fp)
+            return freqs
+
         # convert trans_fp to lambda
-        lambdas = lambda_from_fp(trans_fp)
+        nus = freqs_from_fp(trans_fp)
         # fit temperature
 
-        def fit_temp(lamb, T, offset):
+        def fit_temp(nu, T, offset):
             """Temperature fitting function
             :param type lamb: Wavelength
             :param type T: Temperature
@@ -129,15 +119,15 @@ class Homodyne:
             :return: Theoritical transmission through the cell
             :rtype: type
             """
-            omega = 2*np.pi*cst.c/(lamb+offset)
-            return ds.transmission(self.cell_fraction, T, self.cell_length,
+            omega = nu+offset
+            return ds.transmission(99.5, T, 10e-3,
                                    omega)
 
-        temperature_fit = curve_fit(fit_temp, lambdas, transmitted, p0=[390, 780e-9])
+        temperature_fit = curve_fit(fit_temp, nus, transmitted_filt, p0=[400, 384.23e12-6.5e9])
         T_fit = temperature_fit[0][0]
         offset = temperature_fit[0][1]
         # convert wavelengths to detunings for plotting
-        dets = cst.c/(lambdas+offset) - 384.230406373e12
+        dets = (nus+offset) - 384.230406373e12
         if plot:
             fig, ax = plt.subplots(1, 3)
             ax[0].plot(time_t*1e3, transmitted_r)
@@ -148,8 +138,10 @@ class Homodyne:
             ax[0].set_xlabel("Time in ms")
             ax[0].set_ylabel("Signal in V")
             ax[1].plot(dets*1e-6, transmitted, ls='-', color='b')
-            ax[1].plot(dets*1e-6, fit_temp(lambdas, T_fit, offset), ls='--', color='r')
-            ax[1].legend(["Exp", "Fit"])
+            ax[1].plot(dets*1e-6, transmitted_filt, color='b')
+            ax[1].plot(dets*1e-6, ds.transmission(99.5, T_fit, 10e-3, dets),
+                       ls='--', color='r')
+            ax[1].legend(["Exp", "Exp filtered", "Fit"])
             ax[1].set_title(f"Fitted temperature T = {T_fit-273.15} °C")
             ax[1].set_xlabel("Detuning $\\Delta$ in MHz ")
             ax[1].set_ylabel("Transmission")
