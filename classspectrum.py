@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Apr 27 14:38:28 2021
+
+@author: Thomas Picot / Tangui Aladjidi
+"""
+
 import numpy as np
 import scipy.constants as cst
 from scipy.special import erfc
@@ -78,7 +85,7 @@ class DisplaySpectrum:
         N = frac*Ndensity(temp, omega,deg)
         return N
 
-    def imaginaryPartOfSusceptibility(self, C_f, frac, temp, omega,omega, detuning, deg):
+    def imaginaryPartOfSusceptibility(self, C_f, frac, temp,omega, detuning, deg):
         """
         DESCRIPTION:    I think the desc is in function.
         PARAMS:         C_f->C_f^2 is the transition coefficient
@@ -97,7 +104,7 @@ class DisplaySpectrum:
         #print(V(self.gamma, varsigma(temp)/np.sqrt(2) ,-1*delta).imag)
         return absorption
 
-    def alpha(self, C_f, frac, temp, omega,omega, detuning, deg):
+    def alpha(self, C_f, frac, temp,omega, detuning, deg):
         """
         DESCRIPTION:    absorption coefficient
         PARAMS:         C_f->C_f^2 is the transition coefficient
