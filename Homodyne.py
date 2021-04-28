@@ -69,6 +69,7 @@ class Homodyne:
         self.sas_temp = float(conf["SAS"]["temp"])
         # Fabry Perot free spectral range in Hz
         self.fp_fsr = float(conf["FP"]["fsr"])
+        
     def get_cell_temp(self, trans: int = 1, sas: int = 2, norm: int = 3,
                       fp: int = 4, plot: bool = True) -> float:
         """Fits the cell temperature from a low power transmission scan
