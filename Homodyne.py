@@ -63,7 +63,10 @@ class Homodyne:
                          in range(4)]
         self.cell_fraction = float(conf["Cell"]["fraction"])
         self.cell_length = float(conf["Cell"]["length"])
-
+        self.sas_fraction = float(conf["SAS"]["fraction"])
+        self.sas_length = float(conf["SAS"]["length"])
+        # in Celsius
+        self.sas_temp = float(conf["SAS"]["temp"])
 
     def get_cell_temp(self, trans: int = 1, sas: int = 2, norm: int = 3,
                       fp: int = 4, plot: bool = True) -> float:
@@ -157,8 +160,8 @@ class Homodyne:
 
             """
             omega = a*nu + offset
-            return ds.transmission(23, 19.5+273.15, 60e-3,
-                                   omega)
+            return ds.transmission(self.sas_fraction, self.sas_temp+273.15,
+                                   self.sas_length, omega)
 
         print("Fitting ...")
         nu_fit = curve_fit(fit_nu, nus, sas_corr, p0=[1, -7e9])
@@ -182,14 +185,17 @@ class Homodyne:
             ax[0].set_ylabel("Signal in V")
             ax[1].plot(dets*1e-6, sas_corr, ls='-', color='g')
             ax[1].plot(dets*1e-6, transmitted_filt, color='orange')
-            ax[1].plot(dets*1e-6, ds.transmission(0.5, T_fit, 10e-3, dets),
+            ax[1].plot(dets*1e-6, ds.transmission(self.cell_fraction, T_fit,
+                                                  self.cell_length, dets),
                        ls='--', color='r')
             ax[1].legend(["SAS corr", "Exp filtered", "Fit"])
             ax[1].set_title(f"Fitted temperature T = {T_fit-273.15} °C")
             ax[1].set_xlabel("Detuning $\\Delta$ in MHz ")
             ax[1].set_ylabel("Transmission")
             ax[2].plot(dets*1e-6, sas_corr)
-            ax[2].plot(dets*1e-6, ds.transmission(23, 19.5+273.15, 60e-3,
+            ax[2].plot(dets*1e-6, ds.transmission(self.sas_fraction,
+                                                  self.sas_temp+273.15,
+                                                  self.sas_length,
                        a*nus+offset), ls='--', color='r')
             ax[2].set_title("SAS fitting")
             ax[2].set_xlabel("Detuning $\\Delta$ in MHz ")
