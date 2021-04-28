@@ -69,11 +69,6 @@ class DisplaySpectrum:
         self.w_jjb = 1664.714e6
         self.w_jjjb = 1728.134e6
 
-    def varomega(self):
-        omega = np.linspace(-6e9, 6e9, 3000)
-        #omega = 2*np.pi*np.linspace(-5e9, 5e9, 3000)     # useless to touch it
-        return omega
-
     def fracRb(self, frac, temp, omega, deg):
         """
         DESCRIPTION:
