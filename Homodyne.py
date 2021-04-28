@@ -18,7 +18,7 @@ import traceback
 import scipy.fft as fft
 import pyfftw
 from scipy.optimize import curve_fit
-from scipy.signal import find_peaks
+from scipy.signal import find_peaks, detrend
 from scipy.interpolate import interp1d
 from classspectrum import DisplaySpectrum
 import scipy.constants as cst
@@ -70,7 +70,7 @@ class Homodyne:
         self.sas_temp = float(conf["SAS"]["temp"])
         # Fabry Perot free spectral range in Hz
         self.fp_fsr = float(conf["FP"]["fsr"])
-        
+
     def get_cell_temp(self, trans: int = 1, sas: int = 2, norm: int = 3,
                       fp: int = 4, plot: bool = True) -> float:
         """Fits the cell temperature from a low power transmission scan
@@ -133,11 +133,8 @@ class Homodyne:
 
         # convert trans_fp to lambda
         nus, peaks = freqs_from_fp(trans_fp)
-        max_sas = np.where(sas_filt == np.max(sas_filt))[0][0]
-        linear_slope = (np.max(sas_filt)-sas_filt[0])/(nus[max_sas]-nus[0])
-        linear_offset = sas_filt[0]
-        linear_corr = 1 - (linear_slope*nus + linear_offset)
-        sas_corr = sas_filt+linear_corr
+        sas_corr = detrend(sas_filt)
+        sas_corr = sas_corr + (1-np.max(sas_corr))
         # fit temperature
 
         def fit_temp(nu: float, T: float) -> float:
