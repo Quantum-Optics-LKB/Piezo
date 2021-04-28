@@ -64,8 +64,9 @@ class Homodyne:
         self.cell_fraction = float(conf["Cell"]["fraction"])
         self.cell_length = float(conf["Cell"]["length"])
 
-    def get_cell_temp(self, trans: int = 1, sas: int = 2, norm: int = 3, fp: int = 4,
-                      plot: bool = True) -> float:
+
+    def get_cell_temp(self, trans: int = 1, sas: int = 2, norm: int = 3,
+                      fp: int = 4, plot: bool = True) -> float:
         """Fits the cell temperature from a low power transmission scan
         :param int trans: Transmission channel
         :param int norm: Normalization channel
@@ -75,25 +76,36 @@ class Homodyne:
         :return: Temperature in K
         :rtype: float
         """
-        # tuple of traces from scope
-        Data, Time = self.scope.get_waveform(channels=[trans, sas, norm, fp])
-        np.save("Data.npy", Data)
-        np.save("Time.npy", Time)
-        # trace from input
+        # get traces
+        print("Retrieving oscilloscope data ...")
+        Data, Time = self.scope.get_waveform(channels=[trans, sas, norm, fp],
+                                             memdepth=100e3)
+        print("Data retrieved !")
+        print("Processing ...")
         transmitted_r, time_t = Data[0, :], Time[0, :]
         # trace from saturated absorption
-        sas_r, time_r = Data[1, :], Time[1, :]
+        sas_r, time_sas = Data[1, :], Time[1, :]
         # trace from normalization
-        normalization, time_norm = Data[2, :], Time[2, :]
+        normalization_r, time_norm = Data[2, :], Time[2, :]
         # trace from FP resonator
         trans_fp_r, time_fp = Data[3, :], Time[3, :]
-        # normalize absorption profile
+        # normalize absorption profiles
         transmitted = np.copy(transmitted_r)
-        transmitted /= normalization
+        normalization = np.copy(normalization_r)
+        normalization_filt = gaussian_filter1d(normalization,
+                                               0.5e-3*len(normalization))
+        sas = np.copy(sas_r)
+        transmitted /= normalization_filt
         transmitted /= np.max(transmitted)
-        transmitted_filt = gaussian_filter1d(transmitted, 5)
-        # normalize FP transmission
+        sas /= normalization_filt
+        sas /= np.max(sas)
+        sas_filt = gaussian_filter1d(sas, 0.5e-3*len(sas))
+        transmitted_filt = gaussian_filter1d(transmitted,
+                                             0.5e-3*len(transmitted))
+        trans_fp = np.copy(trans_fp_r)
+        trans_fp /= normalization
         trans_fp = trans_fp_r/np.max(trans_fp_r)
+        trans_fp_filt = gaussian_filter1d(trans_fp, 2)
         # fit fp transmission to retrieve frequency axis
 
         def freqs_from_fp(T: np.ndarray) -> float:
@@ -102,10 +114,10 @@ class Homodyne:
             :return: Wavelength in m
             :rtype: float
             """
-            # this is ugly bc of the hardcoded values for find_peaks ...
-            peaks = find_peaks(trans_fp, height=0.5, distance=40)[0]
+            peaks = find_peaks(trans_fp_filt, height=0.5,
+                               distance=0.015*len(trans_fp_filt))[0]
             # define frequencies from FSR of FP cavity
-            freqs_samples = 0.7e9 * np.linspace(0, len(peaks)-1, len(peaks))
+            freqs_samples = 0.715e9 * np.linspace(0, len(peaks)-1, len(peaks))
             interp = interp1d(time_fp[peaks], freqs_samples,
                               fill_value='extrapolate')
             # interpolate to get full frequency curve
@@ -114,9 +126,14 @@ class Homodyne:
 
         # convert trans_fp to lambda
         nus = freqs_from_fp(trans_fp)
+        max_sas = np.where(sas_filt == np.max(sas_filt))[0][0]
+        linear_slope = (np.max(sas_filt)-sas_filt[0])/(nus[max_sas]-nus[0])
+        linear_offset = sas_filt[0]
+        linear_corr = 1 - (linear_slope*nus + linear_offset)
+        sas_corr = sas_filt+linear_corr
         # fit temperature
 
-        def fit_temp(nu, T, offset):
+        def fit_temp(nu: float, T: float) -> float:
             """Temperature fitting function
             :param type lamb: Wavelength
             :param type T: Temperature
@@ -124,36 +141,60 @@ class Homodyne:
             :return: Theoritical transmission through the cell
             :rtype: type
             """
-            omega = nu+offset
-            return ds.transmission(99.5, T, 10e-3,
+            return ds.transmission(self.cell_fraction, T, self.cell_length,
+                                   nu)
+
+        # adjust FP frequency axis
+        def fit_nu(nu: float, a: float, offset: float) -> float:
+            """Frequency fitting function. Adjusts Fabry Pérot free spectral
+            range and frequency offset with the SAS.
+
+            :param type nu: FP frequency
+            :param type a: scale correction
+            :param type offset: offset correction
+            :return: Theoritical transmission through the SAS cell
+            :rtype: float
+
+            """
+            omega = a*nu + offset
+            return ds.transmission(23, 19.5+273.15, 60e-3,
                                    omega)
 
-        temperature_fit = curve_fit(fit_temp, nus, transmitted_filt, p0=[400, 384.23e12-6.5e9])
+        print("Fitting ...")
+        nu_fit = curve_fit(fit_nu, nus, sas_corr, p0=[1, -7e9])
+        a, offset = nu_fit[0]
+        temperature_fit = curve_fit(fit_temp, a*nus + offset, transmitted_filt,
+                                    p0=[400])
         T_fit = temperature_fit[0][0]
-        offset = temperature_fit[0][1]
         # convert wavelengths to detunings for plotting
-        dets = (nus+offset) - 384.230406373e12
+        dets = a*nus+offset
+        print(f"Fitting done ! Cell temperature is : T = {T_fit-273.15} °C")
         if plot:
             fig, ax = plt.subplots(1, 3)
             ax[0].plot(time_t*1e3, transmitted_r)
+            ax[0].plot(time_sas*1e3, sas_r)
             ax[0].plot(time_norm*1e3, normalization)
             ax[0].plot(time_fp*1e3, trans_fp_r)
-            ax[0].legend(["Transmission", "Normalization", "Fabry Pérot"])
+            ax[0].legend(["Transmission", "SAS", "Normalization",
+                          "Fabry Pérot"])
             ax[0].set_title("Raw oscilloscope signal")
             ax[0].set_xlabel("Time in ms")
             ax[0].set_ylabel("Signal in V")
-            ax[1].plot(dets*1e-6, transmitted, ls='-', color='b')
-            ax[1].plot(dets*1e-6, transmitted_filt, color='b')
-            ax[1].plot(dets*1e-6, ds.transmission(99.5, T_fit, 10e-3, dets),
+            ax[1].plot(dets*1e-6, sas_corr, ls='-', color='g')
+            ax[1].plot(dets*1e-6, transmitted_filt, color='orange')
+            ax[1].plot(dets*1e-6, ds.transmission(0.5, T_fit, 10e-3, dets),
                        ls='--', color='r')
-            ax[1].legend(["Exp", "Exp filtered", "Fit"])
+            ax[1].legend(["SAS corr", "Exp filtered", "Fit"])
             ax[1].set_title(f"Fitted temperature T = {T_fit-273.15} °C")
             ax[1].set_xlabel("Detuning $\\Delta$ in MHz ")
             ax[1].set_ylabel("Transmission")
-            ax[2].plot(dets*1e-6, trans_fp)
-            ax[2].set_title("Fabry Pérot transmission")
+            ax[2].plot(dets*1e-6, sas_corr)
+            ax[2].plot(dets*1e-6, ds.transmission(23, 19.5+273.15, 60e-3,
+                       a*nus+offset), ls='--', color='r')
+            ax[2].set_title("SAS fitting")
             ax[2].set_xlabel("Detuning $\\Delta$ in MHz ")
             ax[2].set_ylabel("Transmission")
+            ax[2].legend(["SAS corrected", "Fit"])
             plt.show()
         return T_fit
 

@@ -117,7 +117,7 @@ class DisplaySpectrum:
         RETURNS:        1darray
         """
 
-        alpha = self.k*self.imaginaryPartOfSusceptibility(C_f, frac, temp,omega, detuning, deg)
+        alpha = self.k*self.imaginaryPartOfSusceptibility(C_f, frac, temp, omega, detuning, deg)
         return alpha
 
     def transmission(self, frac, temp, long, omega):
