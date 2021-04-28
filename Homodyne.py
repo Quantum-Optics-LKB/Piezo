@@ -67,7 +67,8 @@ class Homodyne:
         self.sas_length = float(conf["SAS"]["length"])
         # in Celsius
         self.sas_temp = float(conf["SAS"]["temp"])
-
+        # Fabry Perot free spectral range in Hz
+        self.fp_fsr = float(conf["FP"]["fsr"])
     def get_cell_temp(self, trans: int = 1, sas: int = 2, norm: int = 3,
                       fp: int = 4, plot: bool = True) -> float:
         """Fits the cell temperature from a low power transmission scan
@@ -120,7 +121,7 @@ class Homodyne:
             peaks = find_peaks(trans_fp_filt, height=0.5,
                                distance=0.015*len(trans_fp_filt))[0]
             # define frequencies from FSR of FP cavity
-            freqs_samples = 0.715e9 * np.linspace(0, len(peaks)-1, len(peaks))
+            freqs_samples = self.fp_fsr * np.linspace(0, len(peaks)-1, len(peaks))
             interp = interp1d(time_fp[peaks], freqs_samples,
                               fill_value='extrapolate')
             # interpolate to get full frequency curve
