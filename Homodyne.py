@@ -18,7 +18,8 @@ import traceback
 import scipy.fft as fft
 import pyfftw
 from scipy.optimize import curve_fit
-# from scipy.signal import savgol_filter, find_peaks, correlate
+from scipy.signal import find_peaks
+from scipy.interpolate import interp1d
 from classspectrum import DisplaySpectrum
 import scipy.constants as cst
 from scipy.ndimage import gaussian_filter1d
@@ -82,9 +83,10 @@ class Homodyne:
         :rtype: float
         """
         # get traces
+        print("Measuring temperature ...")
         print("Retrieving oscilloscope data ...")
         Data, Time = self.scope.get_waveform(channels=[trans, sas, norm, fp],
-                                             memdepth=100e3)
+                                            memdepth=100e3)
         print("Data retrieved !")
         print("Processing ...")
         transmitted_r, time_t = Data[0, :], Time[0, :]
@@ -119,7 +121,7 @@ class Homodyne:
             :return: Wavelength in m
             :rtype: float
             """
-            peaks = find_peaks(trans_fp_filt, height=0.5,
+            peaks = find_peaks(trans_fp_filt, height=0.7,
                                distance=0.015*len(trans_fp_filt))[0]
             # define frequencies from FSR of FP cavity
             freqs_samples = self.fp_fsr * np.linspace(0, len(peaks)-1, len(peaks))
@@ -127,10 +129,10 @@ class Homodyne:
                               fill_value='extrapolate')
             # interpolate to get full frequency curve
             freqs = interp(time_fp)
-            return freqs
+            return freqs, peaks
 
         # convert trans_fp to lambda
-        nus = freqs_from_fp(trans_fp)
+        nus, peaks = freqs_from_fp(trans_fp)
         max_sas = np.where(sas_filt == np.max(sas_filt))[0][0]
         linear_slope = (np.max(sas_filt)-sas_filt[0])/(nus[max_sas]-nus[0])
         linear_offset = sas_filt[0]
@@ -180,6 +182,7 @@ class Homodyne:
             ax[0].plot(time_sas*1e3, sas_r)
             ax[0].plot(time_norm*1e3, normalization)
             ax[0].plot(time_fp*1e3, trans_fp_r)
+            ax[0].scatter(time_fp[peaks]*1e3, trans_fp_r[peaks])
             ax[0].legend(["Transmission", "SAS", "Normalization",
                           "Fabry Pérot"])
             ax[0].set_title("Raw oscilloscope signal")
