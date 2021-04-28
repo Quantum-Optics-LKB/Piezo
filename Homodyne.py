@@ -64,7 +64,7 @@ class Homodyne:
         self.cell_fraction = float(conf["Cell"]["fraction"])
         self.cell_length = float(conf["Cell"]["length"])
 
-    def get_cell_temp(self, trans: int = 1, norm: int = 3, fp: int = 4,
+    def get_cell_temp(self, trans: int = 1, sas: int = 2, norm: int = 3, fp: int = 4,
                       plot: bool = True) -> float:
         """Fits the cell temperature from a low power transmission scan
         :param int trans: Transmission channel
@@ -76,13 +76,17 @@ class Homodyne:
         :rtype: float
         """
         # tuple of traces from scope
-        Data, Time = self.scope.get_waveform(channels=[trans, norm, fp])
+        Data, Time = self.scope.get_waveform(channels=[trans, sas, norm, fp])
+        np.save("Data.npy", Data)
+        np.save("Time.npy", Time)
         # trace from input
         transmitted_r, time_t = Data[0, :], Time[0, :]
+        # trace from saturated absorption
+        sas_r, time_r = Data[1, :], Time[1, :]
         # trace from normalization
-        normalization, time_norm = Data[1, :], Time[1, :]
+        normalization, time_norm = Data[2, :], Time[2, :]
         # trace from FP resonator
-        trans_fp_r, time_fp = Data[2, :], Time[2, :]
+        trans_fp_r, time_fp = Data[3, :], Time[3, :]
         # normalize absorption profile
         transmitted = np.copy(transmitted_r)
         transmitted /= normalization
@@ -102,7 +106,8 @@ class Homodyne:
             peaks = find_peaks(trans_fp, height=0.5, distance=40)[0]
             # define frequencies from FSR of FP cavity
             freqs_samples = 0.7e9 * np.linspace(0, len(peaks)-1, len(peaks))
-            interp = interp1d(time_fp[peaks], freqs_samples, fill_value='extrapolate')
+            interp = interp1d(time_fp[peaks], freqs_samples,
+                              fill_value='extrapolate')
             # interpolate to get full frequency curve
             freqs = interp(time_fp)
             return freqs
