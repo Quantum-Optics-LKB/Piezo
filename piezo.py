@@ -49,7 +49,7 @@ from Thorlabs.MotionControl.TCube.InertialMotorCLI import *
 from Thorlabs.MotionControl.TCube.DCServoCLI import *
 
 
-class TDC001():
+class TDC001:
 
     def __init__(self, serial: str = None):
         """Instantiates a TDC001 object to control piezo DC motor actuators
@@ -151,7 +151,7 @@ class TDC001():
             print(traceback.format_exc())
 
 
-class BPC():
+class BPC:
     def __init__(self, serial: float = None):
         """
         Instantiantes the piezo object
