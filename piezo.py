@@ -37,13 +37,16 @@ from System import String
 from System import Decimal
 import System.Collections
 from System.Collections import *
+# Generic device manager
 import Thorlabs.MotionControl.Controls
 from Thorlabs.MotionControl.DeviceManagerCLI import *
+
 from Thorlabs.MotionControl.Benchtop.PiezoCLI import *
-from Thorlabs.MotionControl.TCube.InertialMotorCLI import *
-from Thorlabs.MotionControl.TCube.DCServoCLI import *
 from Thorlabs.MotionControl.GenericPiezoCLI import *
 from Thorlabs.MotionControl.GenericMotorCLI import *
+
+from Thorlabs.MotionControl.TCube.InertialMotorCLI import *
+from Thorlabs.MotionControl.TCube.DCServoCLI import *
 
 
 class TDC001():
@@ -158,8 +161,12 @@ class BPC():
             try:
                 DeviceManagerCLI.BuildDeviceList()
                 device_list = DeviceManagerCLI.GetDeviceList(BenchtopPiezo.DevicePrefix)
-                if len(device_list) == 0 or serial not in device_list:
-                    print("Error : Could not find the device.")
+                if len(device_list) == 0:
+                    print("Error : Could not find any device.")
+                elif serial not in device_list:
+                    print("Error : Could not find the specified device.")
+                    for dev in device_list:
+                        print(f"Device found, serial {dev}")
                 else:
                     self.attempt_connection(serial)
             except Exception:
@@ -374,11 +381,13 @@ class TIM101:
 
         """
         if serial is not None:
+            DeviceManagerCLI.BuildDeviceList()
+            device_list = DeviceManagerCLI.GetDeviceList(
+                TCubeInertialMotor.DevicePrefix)
+            if len(device_list) == 0 or serial not in device_list:
+                print("Error : ")
             try:
                 self.serial = serial  # SN of the Thorlabs Nano stage
-                DeviceManagerCLI.BuildDeviceList()
-                device_list = DeviceManagerCLI.GetDeviceList(
-                    TCubeInertialMotor.DevicePrefix)
                 if len(device_list) == 0:
                     print("Error : No TCube motor found !")
                 else:
@@ -576,7 +585,6 @@ class TIM101:
                 pos = self.device.GetPosition(self.channel4)
             return pos
 
-
     def move_to(self, channel: int = 1, pos: int = 0) -> int:
         """
         Moves the piezo to a specified position
@@ -603,6 +611,7 @@ class TIM101:
             curr_pos = self.get_position(channel)
             sys.stdout.write(f"\r Moved to : {curr_pos}")
             return curr_pos
+
     def disconnect(self):
         """
         Wrapper function to disconnect the object. Important for tidyness and to avoid conflicts with
