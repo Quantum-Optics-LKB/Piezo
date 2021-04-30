@@ -98,7 +98,9 @@ class TDC001:
         self.configuration = self.device.LoadMotorConfiguration(self.serial)
         self.settings = self.device.MotorDeviceSettings
         # do we home the device upon initialization ?
-
+        # for task completion
+        self.__taskID = 0
+        self.__taskComplete = False
     def attempt_connection(self, serial: str):
         """Generic connection attempt method. Will try to connect to specified
         serial number after device lists have been built. Starts all relevant
@@ -137,6 +139,17 @@ class TDC001:
         self.device.StopPolling()
         self.device.Disconnect(True)
 
+    def __is_command_complete(self, taskID: int):
+        """Private method to handle completion of tasks
+
+        :param int taskID: Task whose status is being querried
+        :return: None
+        :rtype: Nonetype
+
+        """
+        if self.__taskID > 0 and self.__taskID == taskID:
+            self.__taskComplete = True
+
     def home(self, timeout: float = 60e3) -> bool:
         """Homes the device to its center position. Might take some time.
 
@@ -144,11 +157,23 @@ class TDC001:
         :return bool isHomed: If the device is homed
 
         """
-        try:
-            self.device.Home(int(timeout))
-        except Exception:
-            print("ERROR : Could not home the device")
-            print(traceback.format_exc())
+        # try:
+        #     self.device.Home(int(timeout))
+        # except Exception:
+        #     print("ERROR : Could not home the device")
+        #     print(traceback.format_exc())
+        self.__taskComplete = false
+        self.__taskID = self.device.Home(self.__is_command_complete)
+        t0 = time.time()
+        waittime = 0
+        while not(self.__taskComplete) and waittime < timeout:
+            time.sleep(500e-3)
+            status = self.device.Status
+            sys.stdout.write(f"\rHoming device ... Position : {status.Position}")
+            waittime = time.time()-t0
+        print("Device homed !")
+
+
 
 
 class BPC:
