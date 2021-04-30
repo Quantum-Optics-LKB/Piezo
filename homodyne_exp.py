@@ -3,10 +3,10 @@ import cv2
 import EasyPySpin
 import matplotlib.pyplot as plt
 from ScopeInterface import USBScope, USBSpectrumAnalyzer
-from piezo import PiezoTIM101
+from piezo import TIM101
 from Homodyne import Homodyne
 import sys
-import time_s
+import time
 
 plt.switch_backend('Qt5Agg')
 plt.ion()
@@ -20,7 +20,7 @@ cam = EasyPySpin.VideoCapture(0)
 scope = USBScope(addr='USB0::0x1AB1::0x0514::DS7F222900085::INSTR')
 specAn = USBSpectrumAnalyzer(addr="USB0::6833::2400::DSA8A223200862::0::INSTR")
 # specAn = USBSpectrumAnalyzer()
-piezo = PiezoTIM101('65863991')
+piezo = TIM101('65863991')
 pxpitch = 5.5e-6
 h = int(cam.get(cv2.CAP_PROP_FRAME_HEIGHT))
 w = int(cam.get(cv2.CAP_PROP_FRAME_WIDTH))

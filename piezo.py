@@ -37,8 +37,6 @@ from System import String
 from System import Decimal
 import System.Collections
 from System.Collections import *
-# for Attocube
-# from pyanc350 import PyANC350v4
 import Thorlabs.MotionControl.Controls
 from Thorlabs.MotionControl.DeviceManagerCLI import *
 from Thorlabs.MotionControl.Benchtop.PiezoCLI import *
@@ -48,8 +46,8 @@ from Thorlabs.MotionControl.GenericPiezoCLI import *
 from Thorlabs.MotionControl.GenericMotorCLI import *
 
 
-class  TDC001():
-    
+class TDC001():
+
     def __init__(self, serial: str = None):
         """Instantiates a TDC001 object to control piezo DC motor actuators
 
@@ -66,23 +64,7 @@ class  TDC001():
                     print("Error : No TCube motor found !")
                 else:
                     if serial in device_list:
-                        try:
-                            self.device = TCubeDCServo.CreateTCubeDCServo(self.serial)
-                            self.device.Connect(self.serial)
-                            timeout = 0
-                            while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
-                                self.device.WaitForSettingsInitialized(500)
-                                timeout += 1
-                            self.device.StartPolling(250)
-                            time.sleep(0.5)
-                            self.device.EnableDevice()
-                            self.device_info = self.device.GetDeviceInfo()
-                            print("Success ! Connected to TCube motor" +
-                                  f" {self.device_info.SerialNumber}" +
-                                  f" {self.device_info.Name}")
-                        except Exception:
-                            print("ERROR : Could not connect to the device")
-                            print(traceback.format_exc())
+                        self.attempt_connection(serial)
                     else:
                         print("Error : Did not find the specified motor ")
                         for dev in device_list:
@@ -96,80 +78,154 @@ class  TDC001():
                 device_list = DeviceManagerCLI.GetDeviceList(TCubeDCServo.DevicePrefix)
                 if len(device_list) == 0:
                     print("Error : No TCube motor found !")
+                elif len(device_list) == 1:
+                    print("Only one device found, attempting to connect to " +
+                          f"device {device_list[0]}")
+                    self.attempt_connection(device_list[0])
                 else:
                     for counter, dev in enumerate(device_list):
                         print(f"Device found, serial {dev} ({counter})")
                     choice = input("Choice (number between 0 and" +
                                    f" {len(device_list)-1})? ")
                     choice = int(choice)
-                    self.serial = device_list[choice]
-                    try:
-                        self.device = TCubeDCServo.CreateTCubeDCServo(self.serial)
-                        self.device.Connect(self.serial)
-                        timeout = 0
-                        while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
-                            self.device.WaitForSettingsInitialized(500)
-                            timeout += 1
-                        self.device.StartPolling(250)
-                        time.sleep(0.5)
-                        self.device.EnableDevice()
-                        self.device_info = self.device.GetDeviceInfo()
-                        print("Success ! Connected to TCube motor" +
-                              f" {self.device_info.SerialNumber}" +
-                              f" {self.device_info.Name}")
-                    except Exception:
-                        print("ERROR : Could not connect to the device")
-                        print(traceback.format_exc())
+                    self.attempt_connection(device_list[choice])
             except Exception:
                 print("ERROR")
                 print(traceback.format_exc())
         self.configuration = self.device.LoadMotorConfiguration(self.serial)
         self.settings = self.device.MotorDeviceSettings
-       
+        # do we home the device upon initialization ?
+
+    def attempt_connection(self, serial: str):
+        """Generic connection attempt method. Will try to connect to specified
+        serial number after device lists have been built. Starts all relevant
+        routines as polling / command listeners ...
+
+        :param str serial: Serial number
+        :return: None
+
+        """
+        try:
+            self.device = TCubeDCServo.CreateTCubeDCServo(serial)
+            self.device.Connect(serial)
+            timeout = 0
+            while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
+                self.device.WaitForSettingsInitialized(500)
+                timeout += 1
+            self.device.StartPolling(250)
+            time.sleep(0.5)
+            self.device.EnableDevice()
+            self.device_info = self.device.GetDeviceInfo()
+            print("Success ! Connected to TCube motor" +
+                  f" {self.device_info.SerialNumber}" +
+                  f" {self.device_info.Name}")
+            self.serial = serial
+        except Exception:
+            print("ERROR : Could not connect to the device")
+            print(traceback.format_exc())
+
     def disconnect(self):
+        """Disconnects the device. Important for tidyness and to avoid
+        references being kept to a dead object.
+
+        :return: None
+
+        """
         self.device.StopPolling()
         self.device.Disconnect(True)
-        
-    def home(self, timeout = 60e3):
+
+    def home(self, timeout: float = 60e3) -> bool:
+        """Homes the device to its center position. Might take some time.
+
+        :param float timeout: Timeout of the movement.
+        :return bool isHomed: If the device is homed
+
+        """
         try:
             self.device.Home(int(timeout))
         except Exception:
             print("ERROR : Could not home the device")
             print(traceback.format_exc())
 
-class Piezo3Axis():
+
+class BPC():
     def __init__(self, serial: float = None):
         """
         Instantiantes the piezo object
-        :param serial: Thorlabs/ Attocube serial number
+        :param serial: Thorlabs serial number
+        """
+        if serial is not None:
+            try:
+                DeviceManagerCLI.BuildDeviceList()
+                device_list = DeviceManagerCLI.GetDeviceList(BenchtopPiezo.DevicePrefix)
+                if len(device_list) == 0 or serial not in device_list:
+                    print("Error : Could not find the device.")
+                else:
+                    self.attempt_connection(serial)
+            except Exception:
+                print('ERROR')
+                print(traceback.format_exc())
+        else:
+            try:
+                DeviceManagerCLI.BuildDeviceList()
+                device_list = DeviceManagerCLI.GetDeviceList(BenchtopPiezo.DevicePrefix)
+                if len(device_list) == 0:
+                    print("Error : No Benchtop Piezo found !")
+                elif len(device_list) == 1:
+                    print("Only one device found, attempting to connect to " +
+                          f"device {device_list[0]}")
+                    self.attempt_connection(device_list[0])
+                else:
+                    for counter, dev in enumerate(device_list):
+                        print(f"Device found, serial {dev} ({counter})")
+                    choice = input("Choice (number between 0 and" +
+                                   f" {len(device_list)-1})? ")
+                    choice = int(choice)
+                    self.attempt_connection(device_list[choice])
+            except Exception:
+                print("ERROR")
+                print(traceback.format_exc())
+
+        self.channel_x = self.device.GetChannel('1')
+        self.channel_y = self.device.GetChannel('2')
+        self.channel_z = self.device.GetChannel('3')
+        self.pos_x = float(str(self.channel_x.GetPosition()))
+        self.pos_y = float(str(self.channel_y.GetPosition()))
+        self.pos_z = float(str(self.channel_z.GetPosition()))
+        # the GetJogSteps method returns
+        # Thorlabs.MotionControl.GenericPiezoCLI.Settings.ControlSettings
+        # object.
+        # Need to the retrieve the PositionStepSize attribute to get a number
+        self.step_x = float(str(self.channel_x.GetJogSteps().PositionStepSize))
+        self.step_y = float(str(self.channel_y.GetJogSteps().PositionStepSize))
+        self.step_z = float(str(self.channel_z.GetJogSteps().PositionStepSize))
+        print('Device initialization successful !')
+        for info in self.device_info:
+            print(f'Device name : {info.Name}' +
+                  f', Serial Number : {info.SerialNumber}')
+        print(f'Number of channels : {self.device.ChannelCount}')
+        print(f'Device position : x = {self.pos_x} µm' +
+              f'y = {self.pos_y} µm, z = {self.pos_z} µm')
+
+    def attempt_connection(self, serial):
+        """Generic connection attempt method. Will try to connect to specified
+        serial number after device lists have been built. Starts all relevant
+        routines as polling / command listeners ...
+
+        :param str serial: Serial number
+        :return: None
+
         """
         try:
-            self.serial = serial  # SN of the Thorlabs Nano stage
             Thorlabs.MotionControl.Benchtop.PiezoCLI.BenchtopPiezo.ConnectDevice
             self.device = BenchtopPiezo.CreateBenchtopPiezo(serial)
-            device_list_result = DeviceManagerCLI.BuildDeviceList()
             self.device.Connect(serial)
             deviceInfo = [self.device.GetDeviceInfo()]
             self.device_info = deviceInfo
             self.device.EnableCommsListener
-            self.channel_x = self.device.GetChannel('1')
-            self.channel_y = self.device.GetChannel('2')
-            self.channel_z = self.device.GetChannel('3')
-            self.pos_x = float(str(self.channel_x.GetPosition()))
-            self.pos_y = float(str(self.channel_y.GetPosition()))
-            self.pos_z = float(str(self.channel_z.GetPosition()))
-            # the GetJogSteps method returns Thorlabs.MotionControl.GenericPiezoCLI.Settings.ControlSettings object.
-            # Need to the retrieve the PositionStepSize attribute to get a number
-            self.step_x = float(str(self.channel_x.GetJogSteps().PositionStepSize))
-            self.step_y = float(str(self.channel_y.GetJogSteps().PositionStepSize))
-            self.step_z = float(str(self.channel_z.GetJogSteps().PositionStepSize))
-            print('Device initialization successful !')
-            for info in deviceInfo:
-                print('Device name : ',info.Name, '/  Serial Number : ', info.SerialNumber)
-            print('Number of channels : ',self.device.ChannelCount)
-            print('Device position : x = ',self.pos_x,' µm, y = ', self.pos_y,' µm, z = ',self.pos_z,' µm')
+            self.serial = serial
         except Exception:
-            print('Could not connect with the device ... Have you checked that it is not already used by another program ?')
+            print("ERROR : Could not connect to the device")
             print(traceback.format_exc())
 
     def get_position(self) -> float:
@@ -187,8 +243,9 @@ class Piezo3Axis():
         Updates the position saved in the piezo object
         :return: None
         """
-        self.pos_x, self.pos_y, self.pos_z = self.get_position() #need to find a way to actualize the position kept in
-                                                                 #the python class regularly
+        self.pos_x, self.pos_y, self.pos_z = self.get_position()
+        # need to find a way to actualize the position kept in
+        # the python class regularly
 
     def move_to(self, tgt_x: float, tgt_y: float, tgt_z: float):
         """
@@ -199,8 +256,8 @@ class Piezo3Axis():
         :return: None
         """
         self.update_position()
-        # check if each argument is null, so that you don't need to specify each
-        # argument if you want to move only one axis
+        # check if each argument is null, so that you don't need to specify
+        # each argument if you want to move only one axis
 
         if tgt_x is not None:
             self.channel_x.SetPosition(Decimal(tgt_x))
@@ -217,8 +274,7 @@ class Piezo3Axis():
         :param rg: range of the sweep
         :return: None
         """
-        # method to sweep over a range rg on the axis 'x', 'y', or 'z' from the starting position
-        # actualize position if ever it has not been done before
+
         self.update_position()
         if axis == 'x':
             Range = np.arange(0, rg, self.step_x)
@@ -253,15 +309,14 @@ class Piezo3Axis():
 
     def sweep_2D(self, axis, rg0, rg1):
         """
-        2D sweep
+        2D sweep in a plane (xy, yz or xz)
         :param axis: 'xy', 'yz' or 'xz' the plane in which the sweep is done
         :param rg0: Range along first axis
         :param rg1: Range along second axis
         :return: None
         """
+
         self.update_position()
-        # method to sweep a surface (xy,yz, or xz) over a range rg0 on the
-        # first axis and rg1 on the other
         if axis == 'xy':
             Range0 = np.arange(0, rg0, self.step_x)
             Range1 = np.arange(0, rg1, self.step_y)
@@ -279,35 +334,36 @@ class Piezo3Axis():
             self.move_to(origin0, origin1, None)
             self.update_position()
         if axis == 'yz':
-           Range0 = np.arange(0, rg0, self.step_y)
-           Range1 = np.arange(0, rg1, self.step_z)
-           start_y = self.pos_y - (rg0/2)
-           start_z = self.pos_z - (rg1/2)
-           origin0 = self.pos_y
-           origin1 = self.pos_z
-           for y in Range0:
-               for z in Range1:
-                   self.move_to(None , start_y+y, start_z+z)
-                   # do something
-                   time.sleep(0.5)
-           self.move_to(None, origin0, origin1)
-           self.update_position()
+            Range0 = np.arange(0, rg0, self.step_y)
+            Range1 = np.arange(0, rg1, self.step_z)
+            start_y = self.pos_y - (rg0/2)
+            start_z = self.pos_z - (rg1/2)
+            origin0 = self.pos_y
+            origin1 = self.pos_z
+            for y in Range0:
+                for z in Range1:
+                    self.move_to(None, start_y+y, start_z+z)
+                    # do something
+                    time.sleep(0.5)
+            self.move_to(None, origin0, origin1)
+            self.update_position()
         if axis == 'xz':
-           Range0 = np.arange(0, rg0, self.step_x)
-           Range1 = np.arange(0, rg1, self.step_z)
-           start_x = self.pos_x - (rg0/2)
-           start_z = self.pos_z - (rg1/2)
-           origin0 = self.pos_x
-           origin1 = self.pos_z
-           for x in Range0:
-               for z in Range1:
-                   self.move_to(start_x+x, None, start_z+z)
-                   # do something
-                   time.sleep(0.5)
-           self.move_to(origin0, None, origin1)
-           self.update_position()
+            Range0 = np.arange(0, rg0, self.step_x)
+            Range1 = np.arange(0, rg1, self.step_z)
+            start_x = self.pos_x - (rg0/2)
+            start_z = self.pos_z - (rg1/2)
+            origin0 = self.pos_x
+            origin1 = self.pos_z
+            for x in Range0:
+                for z in Range1:
+                    self.move_to(start_x+x, None, start_z+z)
+                    # do something
+                    time.sleep(0.5)
+            self.move_to(origin0, None, origin1)
+            self.update_position()
 
-class PiezoTIM101:
+
+class TIM101:
 
     def __init__(self, serial: str = None):
         """Instantiates a PiezoTIM object to control piezo mirror screws
@@ -321,28 +377,13 @@ class PiezoTIM101:
             try:
                 self.serial = serial  # SN of the Thorlabs Nano stage
                 DeviceManagerCLI.BuildDeviceList()
-                device_list = DeviceManagerCLI.GetDeviceList(TCubeInertialMotor.DevicePrefix)
+                device_list = DeviceManagerCLI.GetDeviceList(
+                    TCubeInertialMotor.DevicePrefix)
                 if len(device_list) == 0:
                     print("Error : No TCube motor found !")
                 else:
                     if serial in device_list:
-                        try:
-                            self.device = TCubeInertialMotor.CreateTCubeInertialMotor(self.serial)
-                            self.device.Connect(self.serial)
-                            timeout = 0
-                            while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
-                                self.device.WaitForSettingsInitialized(500)
-                                timeout += 1
-                            self.device.StartPolling(250)
-                            time.sleep(0.5)
-                            self.device.EnableDevice()
-                            self.device_info = self.device.GetDeviceInfo()
-                            print("Success ! Connected to TCube motor" +
-                                  f" {self.device_info.SerialNumber}" +
-                                  f" {self.device_info.Name}")
-                        except Exception:
-                            print("ERROR : Could not connect to the device")
-                            print(traceback.format_exc())
+                        self.attempt_connection(serial)
                     else:
                         print("Error : Did not find the specified motor ")
                         for dev in device_list:
@@ -356,30 +397,17 @@ class PiezoTIM101:
                 device_list = DeviceManagerCLI.GetDeviceList(TCubeInertialMotor.DevicePrefix)
                 if len(device_list) == 0:
                     print("Error : No TCube motor found !")
+                elif len(device_list) == 1:
+                    print("Only one device found, attempting to connect to " +
+                          f"device {device_list[0]}")
+                    self.attempt_connection(device_list[0])
                 else:
                     for counter, dev in enumerate(device_list):
                         print(f"Device found, serial {dev} ({counter})")
                     choice = input("Choice (number between 0 and" +
                                    f" {len(device_list)-1})? ")
                     choice = int(choice)
-                    self.serial = device_list[choice]
-                    try:
-                        self.device = TCubeInertialMotor.CreateTCubeInertialMotor(self.serial)
-                        self.device.Connect(self.serial)
-                        timeout = 0
-                        while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
-                            self.device.WaitForSettingsInitialized(500)
-                            timeout += 1
-                        self.device.StartPolling(250)
-                        time.sleep(0.5)
-                        self.device.EnableDevice()
-                        self.device_info = self.device.GetDeviceInfo()
-                        print("Success ! Connected to TCube motor" +
-                              f" {self.device_info.SerialNumber}" +
-                              f" {self.device_info.Name}")
-                    except Exception:
-                        print("ERROR : Could not connect to the device")
-                        print(traceback.format_exc())
+                    self.attempt_connection(device_list[choice])
             except Exception:
                 print("ERROR")
                 print(traceback.format_exc())
@@ -400,7 +428,35 @@ class PiezoTIM101:
         self.settings.Drive.Channel(self.channel4).StepAcceleration = 100000
         self.device.SetSettings(self.settings, True, True)
         self.zero()
-        
+
+    def attempt_connection(self, serial):
+        """Generic connection attempt method. Will try to connect to specified
+        serial number after device lists have been built. Starts all relevant
+        routines as polling / command listeners ...
+
+        :param str serial: Serial number
+        :return: None
+
+        """
+        try:
+            self.device = TCubeInertialMotor.CreateTCubeInertialMotor(serial)
+            self.device.Connect(serial)
+            timeout = 0
+            while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
+                self.device.WaitForSettingsInitialized(500)
+                timeout += 1
+            self.device.StartPolling(250)
+            time.sleep(0.5)
+            self.device.EnableDevice()
+            self.device_info = self.device.GetDeviceInfo()
+            print("Success ! Connected to TCube motor" +
+                  f" {self.device_info.SerialNumber}" +
+                  f" {self.device_info.Name}")
+            self.serial = serial
+        except Exception:
+            print("ERROR : Could not connect to the device")
+            print(traceback.format_exc())
+
     def get_steprate(self, channel: int = 1) -> float:
         """
         Wrapper function to get the step rate of a channel in Hz
@@ -519,7 +575,7 @@ class PiezoTIM101:
             elif channel == 4:
                 pos = self.device.GetPosition(self.channel4)
             return pos
-           
+
 
     def move_to(self, channel: int = 1, pos: int = 0) -> int:
         """

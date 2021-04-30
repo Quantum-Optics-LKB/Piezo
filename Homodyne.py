@@ -9,7 +9,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from ScopeInterface import USBScope, USBSpectrumAnalyzer
-from piezo import PiezoTIM101
+from piezo import TIM101
 import EasyPySpin
 import cv2
 import sys
@@ -29,6 +29,8 @@ plt.switch_backend('Qt5Agg')
 plt.ion()
 
 ds = DisplaySpectrum()
+
+
 def mypause(interval):
     backend = plt.rcParams['backend']
     if backend in matplotlib.rcsetup.interactive_bk:
@@ -42,11 +44,11 @@ def mypause(interval):
 
 
 class Homodyne:
-    def __init__(self, piezo: PiezoTIM101, specAn: USBSpectrumAnalyzer,
+    def __init__(self, piezo: TIM101, specAn: USBSpectrumAnalyzer,
                  scope: USBScope, cam: EasyPySpin.VideoCapture):
         """Instantiates the homodyne setup with a piezo to move the LO angle,
         a spectrum analyzer, an oscilloscope and a camera.
-        :param PiezoTIM101 piezo: Piezo to jog
+        :param TIM101 piezo: Piezo to jog
         :param USBSpectrumAnalyzer specAn: spectrum analyzer
         :param USBScope scope: oscilloscope
         :param EasyPySpin cam: camera, EasyPySpin instance
@@ -388,9 +390,10 @@ class Homodyne:
             sys.stdout.write(f", k = {prt} um^-1")
             return k_actual
 
-    def measure_once(self, channels: list = [1], center: float = 1e6,
-                     rbw: int = 100, vbw: int = 30, swt: float = 50e-3,
-                     trig: bool = True) -> np.ndarray:
+    def measure_once_zerospan(self, channels: list = [1], center: float = 1e6,
+                              rbw: int = 100, vbw: int = 30,
+                              swt: float = 50e-3,
+                              trig: bool = True) -> np.ndarray:
         """
         Does a single noise measurement
         :param channels: channels list, defaults to [1]
@@ -411,6 +414,32 @@ class Homodyne:
         data_specAn, time_specAn = self.specAn.zero_span(center, rbw, vbw, swt,
                                                          trig)
         return data_specAn, time_specAn, data_scope, time_scope
+
+    def measure_once_span(self, channels: list = [1], center: float = 22.5e6,
+                          span: float = 45e6, rbw: int = 100, vbw: int = 30,
+                          swt: float = 50e-3,
+                          trig: bool = True) -> np.ndarray:
+        """
+        Does a single noise measurement
+        :param channels: channels list, defaults to [1]
+        :type channels: list, optional
+        :param float center: Center frequency in Hz
+        :param float span: Span frequency in Hz
+        :param float rbw: Resolution bandwidth
+        :param float vbw: Video bandwidth
+        :param float swt: Total measurement time
+        :param bool trig: External trigger
+        :return: data, time for data and time
+        :return: Tuple of spectrum / LO power ((channels, time), (LO, time_LO))
+        :rtype: np.ndarray
+        """
+        # measure first with the scope then stop measurement, as the SpecAn
+        # is triggered by the output trigger of the scope, the SpecAn will
+        # keep the right trace
+        data_scope, time_scope = self.scope.get_waveform(channels)
+        data_specAn, freq_specAn = self.specAn.span(center, span, rbw, vbw,
+                                                    swt, trig)
+        return data_specAn, freq_specAn, data_scope, time_scope
 
     def scan_f(self, f0: float = 1e6, f1: float = 45e6, steps: int = 50,
                channels_s: list = [1], rbw: int = 100,
@@ -440,13 +469,15 @@ class Homodyne:
                 sys.exit()
         freqs = np.linspace(f0, f1, steps)
         # do one measurement to retrieve relevant sizes
-        data, time, data_scope, time_scope = self.measure_once(channels_s,
+        data, time, data_scope, time_scope = self.measure_once_zerospan(
+                                                               channels_s,
                                                                freqs[0], rbw,
                                                                vbw, swt, True)
         spectras = np.zeros(len(freqs), len(time))
         datas_scope = np.zeros(len(freqs), len(channels_s), len(time_scope))
         for counter, freq in enumerate(freqs):
-            data, time, data_scope, time_scope = self.measure_once(channels_s,
+            data, time, data_scope, time_scope = self.measure_once_zerospan(
+                                                                   channels_s,
                                                                    freq, rbw,
                                                                    vbw, swt,
                                                                    trig)
@@ -454,11 +485,11 @@ class Homodyne:
             datas_scope[counter, :, :] = data_scope
         return spectras, time, datas_scope, time_scope
 
-    def scan_k(self, k0: float = 10, k1: float = 0.01e6, steps: int = 50,
-               channels_p: list = [1], channels_s: list = [1],
-               center: float = 1e6, rbw: int = 100,
-               vbw: int = 30, swt: float = 50e-3,
-               trig: bool = True) -> np.ndarray:
+    def scan_k_zerospan(self, k0: float = 10, k1: float = 0.01e6,
+                        steps: int = 50, channels_p: list = [1],
+                        channels_s: list = [1], center: float = 1e6,
+                        rbw: int = 100, vbw: int = 30, swt: float = 50e-3,
+                        trig: bool = True) -> np.ndarray:
         """
         Scans the given k values and takes a spectrum for each k value
         :param k0: Start wavevector in m^{-1}, defaults to 0
@@ -504,7 +535,7 @@ class Homodyne:
         # data formats
         k_values = np.linspace(k0, k1, steps)
         k_actual = np.empty(k_values.shape)
-        data, time, data_scope, time_scope = self.measure_once(channels_s,
+        data, time, data_scope, time_scope = self.measure_once_zerospan(channels_s,
                                                                center, rbw,
                                                                vbw, swt, True)
 
@@ -514,7 +545,7 @@ class Homodyne:
             for counter_k, k in enumerate(k_values):
                 try:
                     k_actual[counter_k] = self.move_to_k(k, channels=[chan])
-                    data, time, data_scope, time_scope = self.measure_once(
+                    data, time, data_scope, time_scope = self.measure_once_zerospan(
                                                             channels_s,
                                                             center, rbw, vbw,
                                                             swt, trig)
@@ -525,6 +556,79 @@ class Homodyne:
                     print(traceback.format_exc())
             self.piezo.move_to(chan, 0)
         return spectra, time, lo, time_scope, k_actual
+
+    def scan_k_span(self, k0: float = 10, k1: float = 0.01e6, steps: int = 50,
+                    channels_p: list = [1], channels_s: list = [1],
+                    center: float = 1e6, rbw: int = 100,
+                    vbw: int = 30, swt: float = 50e-3,
+                    trig: bool = True) -> np.ndarray:
+        """
+        Scans the given k values and takes a spectrum for each k value
+        :param k0: Start wavevector in m^{-1}, defaults to 0
+        :type k0: float, optional
+        :param k1: Stop wavevector in m^{-1}, defaults to 0.001e6
+        :type k1: float, optional
+        :param steps: Number of steps, defaults to 50
+        :type steps: int, optional
+        :param channels_p: Piezo channels list, defaults to [1]
+        :param channels_s: Scope channels list, defaults to [1] for norm power
+        :type channels: list, optional
+        :param float center: Center frequency in Hz
+        :param float rbw: Resolution bandwidth
+        :param float vbw: Video bandwidth
+        :param float swt: Total measurement time
+        :param bool trig: External trigger
+        :return: data, time for data and time
+        :return: Array of spectra (channels, k_values, time), LO values, time,
+        and actual k values
+        :rtype: np.ndarray
+        """
+        # check that the channels list provided is correct
+        if len(channels_p) > 4:
+            print("ERROR : Invalid piezo channel list provided" +
+                  " (List too long)")
+            sys.exit()
+        for chan in channels_p:
+            if chan > 4:
+                print("ERROR : Invalid piezo channel list provided" +
+                      " (Channels are 1,2,3,4)")
+                sys.exit()
+        # check that the channels list provided is correct
+        if len(channels_s) > 4:
+            print("ERROR : Invalid scope channel list provided" +
+                  " (List too long)")
+            sys.exit()
+        for chan in channels_s:
+            if chan > 4:
+                print("ERROR : Invalid scope channel list provided" +
+                      " (Channels are 1,2,3,4)")
+                sys.exit()
+        # puts the specAn in zero span mode and retrieve a spectrum to get the
+        # data formats
+        k_values = np.linspace(k0, k1, steps)
+        k_actual = np.empty(k_values.shape)
+        data, time, data_scope, freq_scope = self.measure_once_span(channels_s,
+                                                                    center,
+                                                                    rbw, vbw,
+                                                                    swt, True)
+
+        spectra = np.empty((len(channels_p), len(k_values), len(time)))
+        lo = np.empty((len(channels_p), len(k_values), len(freq_scope)))
+        for nbr, chan in enumerate(channels_p):
+            for counter_k, k in enumerate(k_values):
+                try:
+                    k_actual[counter_k] = self.move_to_k(k, channels=[chan])
+                    data, time, data_scope, freq_scope = self.measure_once_span(
+                                                            channels_s,
+                                                            center, rbw, vbw,
+                                                            swt, trig)
+                    spectra[nbr, counter_k, :] = data
+                    lo[nbr, counter_k, :] = data_scope
+                except Exception:
+                    print("ERROR : Could not move")
+                    print(traceback.format_exc())
+            self.piezo.move_to(chan, 0)
+        return spectra, time, lo, freq_scope, k_actual
 
     def __get_visibility(frame, fft_side=None, fft_center=None,
                          fft_obj_s=None, ifft_obj_s=None, ifft_obj_c=None):
