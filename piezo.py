@@ -29,7 +29,9 @@ clr.AddReference("System")
 clr.AddReference("Thorlabs.MotionControl.DeviceManagerCLI")
 clr.AddReference("Thorlabs.MotionControl.Benchtop.PiezoCLI")
 clr.AddReference("Thorlabs.MotionControl.GenericPiezoCLI")
+clr.AddReference("Thorlabs.MotionControl.GenericMotorCLI")
 clr.AddReference("Thorlabs.MotionControl.TCube.InertialMotorCLI")
+clr.AddReference("Thorlabs.MotionControl.TCube.DCServoCLI")
 clr.AddReference("Thorlabs.MotionControl.Controls")
 from System import String
 from System import Decimal
@@ -41,8 +43,99 @@ import Thorlabs.MotionControl.Controls
 from Thorlabs.MotionControl.DeviceManagerCLI import *
 from Thorlabs.MotionControl.Benchtop.PiezoCLI import *
 from Thorlabs.MotionControl.TCube.InertialMotorCLI import *
+from Thorlabs.MotionControl.TCube.DCServoCLI import *
 from Thorlabs.MotionControl.GenericPiezoCLI import *
+from Thorlabs.MotionControl.GenericMotorCLI import *
 
+
+class  TDC001():
+    
+    def __init__(self, serial: str = None):
+        """Instantiates a TDC001 object to control piezo DC motor actuators
+
+        :param str serial: Serial number
+        :return: TDC001 object
+
+        """
+        if serial is not None:
+            try:
+                self.serial = serial  # SN of the Thorlabs Nano stage
+                DeviceManagerCLI.BuildDeviceList()
+                device_list = DeviceManagerCLI.GetDeviceList(TCubeDCServo.DevicePrefix)
+                if len(device_list) == 0:
+                    print("Error : No TCube motor found !")
+                else:
+                    if serial in device_list:
+                        try:
+                            self.device = TCubeDCServo.CreateTCubeDCServo(self.serial)
+                            self.device.Connect(self.serial)
+                            timeout = 0
+                            while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
+                                self.device.WaitForSettingsInitialized(500)
+                                timeout += 1
+                            self.device.StartPolling(250)
+                            time.sleep(0.5)
+                            self.device.EnableDevice()
+                            self.device_info = self.device.GetDeviceInfo()
+                            print("Success ! Connected to TCube motor" +
+                                  f" {self.device_info.SerialNumber}" +
+                                  f" {self.device_info.Name}")
+                        except Exception:
+                            print("ERROR : Could not connect to the device")
+                            print(traceback.format_exc())
+                    else:
+                        print("Error : Did not find the specified motor ")
+                        for dev in device_list:
+                            print(f"Device found, serial {dev}")
+            except Exception:
+                print("ERROR")
+                print(traceback.format_exc())
+        else:
+            try:
+                DeviceManagerCLI.BuildDeviceList()
+                device_list = DeviceManagerCLI.GetDeviceList(TCubeDCServo.DevicePrefix)
+                if len(device_list) == 0:
+                    print("Error : No TCube motor found !")
+                else:
+                    for counter, dev in enumerate(device_list):
+                        print(f"Device found, serial {dev} ({counter})")
+                    choice = input("Choice (number between 0 and" +
+                                   f" {len(device_list)-1})? ")
+                    choice = int(choice)
+                    self.serial = device_list[choice]
+                    try:
+                        self.device = TCubeDCServo.CreateTCubeDCServo(self.serial)
+                        self.device.Connect(self.serial)
+                        timeout = 0
+                        while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
+                            self.device.WaitForSettingsInitialized(500)
+                            timeout += 1
+                        self.device.StartPolling(250)
+                        time.sleep(0.5)
+                        self.device.EnableDevice()
+                        self.device_info = self.device.GetDeviceInfo()
+                        print("Success ! Connected to TCube motor" +
+                              f" {self.device_info.SerialNumber}" +
+                              f" {self.device_info.Name}")
+                    except Exception:
+                        print("ERROR : Could not connect to the device")
+                        print(traceback.format_exc())
+            except Exception:
+                print("ERROR")
+                print(traceback.format_exc())
+        self.configuration = self.device.LoadMotorConfiguration(self.serial)
+        self.settings = self.device.MotorDeviceSettings
+       
+    def disconnect(self):
+        self.device.StopPolling()
+        self.device.Disconnect(True)
+        
+    def home(self, timeout = 60e3):
+        try:
+            self.device.Home(int(timeout))
+        except Exception:
+            print("ERROR : Could not home the device")
+            print(traceback.format_exc())
 
 class Piezo3Axis():
     def __init__(self, serial: float = None):
@@ -268,7 +361,7 @@ class PiezoTIM101:
                         print(f"Device found, serial {dev} ({counter})")
                     choice = input("Choice (number between 0 and" +
                                    f" {len(device_list)-1})? ")
-                    choice = float(choice)
+                    choice = int(choice)
                     self.serial = device_list[choice]
                     try:
                         self.device = TCubeInertialMotor.CreateTCubeInertialMotor(self.serial)
