@@ -60,6 +60,7 @@ class TDC001:
         """
         if serial is not None:
             try:
+                self.serial = serial  # SN of the Thorlabs Nano stage
                 DeviceManagerCLI.BuildDeviceList()
                 device_list = DeviceManagerCLI.GetDeviceList(TCubeDCServo.DevicePrefix)
                 if len(device_list) == 0:
@@ -100,7 +101,7 @@ class TDC001:
         # for task completion
         self.__taskID = 0
         self.__taskComplete = False
-        
+
     def attempt_connection(self, serial: str):
         """Generic connection attempt method. Will try to connect to specified
         serial number after device lists have been built. Starts all relevant
@@ -157,23 +158,43 @@ class TDC001:
         :return bool isHomed: If the device is homed
 
         """
-        # try:
-        #     self.device.Home(int(timeout))
-        # except Exception:
-        #     print("ERROR : Could not home the device")
-        #     print(traceback.format_exc())
-        self.__taskComplete = False
-        self.__taskID = self.device.Home(self.__is_command_complete)
-        t0 = time.time()
-        waittime = 0
-        while not(self.__taskComplete) and waittime < timeout:
-            time.sleep(500e-3)
-            status = self.device.Status
-            sys.stdout.write("\rHoming device ... Position : " + 
-                             f"{status.Position}")
-            waittime = time.time()-t0
+        try:
+            self.device.Home(int(timeout))
+        except Exception:
+            print("ERROR : Could not home the device")
+            print(traceback.format_exc())
+        # self.__taskComplete = false
+        # Action = getattr(System, "Action`1")
+        # checkcomplete = Action[UInt64](self.__is_command_complete)
+        # self.__taskID = self.device.Home(checkcomplete)
+        # t0 = time.time()
+        # waittime = 0
+        # while not(self.__taskComplete) and waittime < timeout:
+        #     time.sleep(500e-3)
+        #     status = self.device.Status
+        #     sys.stdout.write(f"\rHoming device ... Position : {status.Position}")
+        #     waittime = time.time()-t0
         print("Device homed !")
 
+    def move_to(self, pos: float, timeout: float = 60e3):
+        """Simple move
+
+        :param float pos: Position
+        :param float timeout: Timeout in ms to do the move
+        :return: None
+        :rtype: Nonetype
+
+        """
+        self.device.MoveTo(Decimal(pos), int(timeout))
+
+    def get_position(self):
+        """Returns the actual position
+
+        :return: Position
+        :rtype: float
+
+        """
+        return self.device.Status.Position
 
 
 
