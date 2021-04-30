@@ -60,7 +60,6 @@ class TDC001:
         """
         if serial is not None:
             try:
-                self.serial = serial  # SN of the Thorlabs Nano stage
                 DeviceManagerCLI.BuildDeviceList()
                 device_list = DeviceManagerCLI.GetDeviceList(TCubeDCServo.DevicePrefix)
                 if len(device_list) == 0:
