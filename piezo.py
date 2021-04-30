@@ -60,7 +60,6 @@ class TDC001:
         """
         if serial is not None:
             try:
-                self.serial = serial  # SN of the Thorlabs Nano stage
                 DeviceManagerCLI.BuildDeviceList()
                 device_list = DeviceManagerCLI.GetDeviceList(TCubeDCServo.DevicePrefix)
                 if len(device_list) == 0:
@@ -101,6 +100,7 @@ class TDC001:
         # for task completion
         self.__taskID = 0
         self.__taskComplete = False
+        
     def attempt_connection(self, serial: str):
         """Generic connection attempt method. Will try to connect to specified
         serial number after device lists have been built. Starts all relevant
@@ -162,14 +162,15 @@ class TDC001:
         # except Exception:
         #     print("ERROR : Could not home the device")
         #     print(traceback.format_exc())
-        self.__taskComplete = false
+        self.__taskComplete = False
         self.__taskID = self.device.Home(self.__is_command_complete)
         t0 = time.time()
         waittime = 0
         while not(self.__taskComplete) and waittime < timeout:
             time.sleep(500e-3)
             status = self.device.Status
-            sys.stdout.write(f"\rHoming device ... Position : {status.Position}")
+            sys.stdout.write("\rHoming device ... Position : " + 
+                             f"{status.Position}")
             waittime = time.time()-t0
         print("Device homed !")
 
