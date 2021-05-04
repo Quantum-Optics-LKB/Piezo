@@ -5,9 +5,7 @@
 
     @author: tangui
 
-    Uses Kinesis to control Thorlabs piezo stage in XYZ configuration
-    Or uses the DAISY DLL's to control Attocube stage
-    https://github.com/Laukei/attocube-ANC350-Python-library
+    Uses Kinesis to control Thorlabs devices
 
     The classes volontarily copy and wrap existing objects of Thorlabs
     .NET architecture to simplify it and bring useful objects to the
