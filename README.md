@@ -42,6 +42,11 @@ In the contents table on the [left pan](images/left_pane.png) of the compiled HT
 
 ![left pan](images/left_pane.png)
 
+Let us look at the example of the TIM101. Opening the `TCube IntertialMotor` [tab](images/tim101.png), we can access the documentation of the whole class, with dependencies as well as subclasses and all related objects.  In red, the navigation tabs allow to access detailed documentation about all of the aforementioned objects.
+
+![tab](images/tim101.png)
+
+
 Dependencies 
 ============
 * Pythonnet : Mapping of the .NET functions to Python. **WARNING** Pythonnet provides the `clr` module. If you attempt to `pip install` it you will end up with the `color` module which will be nice, but not what is needed here.
