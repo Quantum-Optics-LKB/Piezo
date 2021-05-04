@@ -32,7 +32,9 @@ clr.AddReference("Thorlabs.MotionControl.GenericPiezoCLI")
 clr.AddReference("Thorlabs.MotionControl.GenericMotorCLI")
 clr.AddReference("Thorlabs.MotionControl.TCube.InertialMotorCLI")
 clr.AddReference("Thorlabs.MotionControl.TCube.DCServoCLI")
+clr.AddReference("Thorlabs.MotionControl.IntegratedStepperMotorsCLI")
 clr.AddReference("Thorlabs.MotionControl.Controls")
+
 from System import String
 from System import Decimal
 import System.Collections
@@ -47,6 +49,159 @@ from Thorlabs.MotionControl.GenericMotorCLI import *
 
 from Thorlabs.MotionControl.TCube.InertialMotorCLI import *
 from Thorlabs.MotionControl.TCube.DCServoCLI import *
+
+from Thorlabs.MotionControl.IntegratedStepperMotorsCLI import *
+
+
+class K10CR1:
+
+    def __init__(self, serial: str = None):
+        """Instantiates a K10CR1 object to control cage rotator
+
+        :param str serial: Serial number
+        :return: K10CR1 object
+
+        """
+        if serial is not None:
+            try:
+                DeviceManagerCLI.BuildDeviceList()
+                device_list = DeviceManagerCLI.GetDeviceList(CageRotator.DevicePrefix)
+                if len(device_list) == 0:
+                    print("Error : No K10CR1 motor found !")
+                else:
+                    if serial in device_list:
+                        self.attempt_connection(serial)
+                    else:
+                        print("Error : Did not find the specified motor ")
+                        for dev in device_list:
+                            print(f"Device found, serial {dev}")
+            except Exception:
+                print("ERROR")
+                print(traceback.format_exc())
+        else:
+            try:
+                DeviceManagerCLI.BuildDeviceList()
+                device_list = DeviceManagerCLI.GetDeviceList(CageRotator.DevicePrefix)
+                if len(device_list) == 0:
+                    print("Error : No K10CR1 motor found !")
+                elif len(device_list) == 1:
+                    print("Only one device found, attempting to connect to " +
+                          f"device {device_list[0]}")
+                    self.attempt_connection(device_list[0])
+                else:
+                    for counter, dev in enumerate(device_list):
+                        print(f"Device found, serial {dev} ({counter})")
+                    choice = input("Choice (number between 0 and" +
+                                   f" {len(device_list)-1})? ")
+                    choice = int(choice)
+                    self.attempt_connection(device_list[choice])
+            except Exception:
+                print("ERROR")
+                print(traceback.format_exc())
+        self.configuration = self.device.LoadMotorConfiguration(self.serial)
+        self.settings = self.device.MotorDeviceSettings
+        # do we home the device upon initialization ?
+        # for task completion
+        self.__taskID = 0
+        self.__taskComplete = False
+
+    def attempt_connection(self, serial: str):
+        """Generic connection attempt method. Will try to connect to specified
+        serial number after device lists have been built. Starts all relevant
+        routines as polling / command listeners ...
+
+        :param str serial: Serial number
+        :return: None
+
+        """
+        try:
+            self.device = CageRotator.CreateCageRotator(serial)
+            self.device.Connect(serial)
+            timeout = 0
+            while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
+                self.device.WaitForSettingsInitialized(500)
+                timeout += 1
+            self.device.StartPolling(250)
+            time.sleep(0.5)
+            self.device.EnableDevice()
+            self.device_info = self.device.GetDeviceInfo()
+            print("Success ! Connected to K10CR1 motor" +
+                  f" {self.device_info.SerialNumber}" +
+                  f" {self.device_info.Name}")
+            self.serial = serial
+        except Exception:
+            print("ERROR : Could not connect to the device")
+            print(traceback.format_exc())
+
+    def disconnect(self):
+        """Disconnects the device. Important for tidyness and to avoid
+        references being kept to a dead object.
+
+        :return: None
+
+        """
+        self.device.StopPolling()
+        self.device.Disconnect(True)
+
+    def __is_command_complete(self, taskID: int):
+        """Private method to handle completion of tasks
+
+        :param int taskID: Task whose status is being querried
+        :return: None
+        :rtype: Nonetype
+
+        """
+        if self.__taskID > 0 and self.__taskID == taskID:
+            self.__taskComplete = True
+
+    def home(self, timeout: float = 60e3) -> bool:
+        """Homes the device to its center position. Might take some time.
+
+        :param float timeout: Timeout of the movement.
+        :return bool isHomed: If the device is homed
+
+        """
+        try:
+            self.device.Home(int(timeout))
+            print("Device homed !")
+        except Exception:
+            print("ERROR : Could not home the device")
+            print(traceback.format_exc())
+        # self.__taskComplete = false
+        # Action = getattr(System, "Action`1")
+        # checkcomplete = Action[UInt64](self.__is_command_complete)
+        # self.__taskID = self.device.Home(checkcomplete)
+        # t0 = time.time()
+        # waittime = 0
+        # while not(self.__taskComplete) and waittime < timeout:
+        #     time.sleep(500e-3)
+        #     status = self.device.Status
+        #     sys.stdout.write(f"\rHoming device ... Position : {status.Position}")
+        #     waittime = time.time()-t0
+
+    def move_to(self, pos: float, timeout: float = 60e3):
+        """Simple move
+
+        :param float pos: Position
+        :param float timeout: Timeout in ms to do the move
+        :return: reached position
+        :rtype: float 
+        
+        """
+        self.device.MoveTo(Decimal(pos), int(timeout))
+        print(f"Device position is: { self.device.Position } °.")
+        return self.device.Position
+        
+    def get_position(self):
+        """Returns the actual position
+
+        :return: Position
+        :rtype: float
+
+        """
+        print(f"Device position is: { self.device.Position } °.")
+        return self.device.Status.Position
+
 
 
 class TDC001:
@@ -159,6 +314,7 @@ class TDC001:
         """
         try:
             self.device.Home(int(timeout))
+            print("Device homed !")
         except Exception:
             print("ERROR : Could not home the device")
             print(traceback.format_exc())
@@ -173,7 +329,6 @@ class TDC001:
         #     status = self.device.Status
         #     sys.stdout.write(f"\rHoming device ... Position : {status.Position}")
         #     waittime = time.time()-t0
-        print("Device homed !")
 
     def move_to(self, pos: float, timeout: float = 60e3):
         """Simple move
@@ -185,7 +340,8 @@ class TDC001:
 
         """
         self.device.MoveTo(Decimal(pos), int(timeout))
-
+        print(f"Device position is: { self.device.Position } °.")
+        
     def get_position(self):
         """Returns the actual position
 
@@ -193,6 +349,7 @@ class TDC001:
         :rtype: float
 
         """
+        print(f"Device position is: { self.device.Position } °.")
         return self.device.Status.Position
 
 
