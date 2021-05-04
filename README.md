@@ -38,6 +38,8 @@ Adding devices
 
 Adding a new device to the library is a fairly straightforward operation. For this, one needs to take a look at the Kinesis .NET API documentation provided in the Kinesis folder. The first step is to find the Thorlabs model name of the device we wish to connect. This is easily done by opening the Kinesis app. Then, one needs to go in the documentation at the relevant chapter. 
 
+In the contents table on the ![left pan](images/leftpane.png) of the compiled HTML viewer, you will find the list of all Thorlabs devices supported by the Kinesis API. 
+
 Dependencies 
 ============
 * Pythonnet : Mapping of the .NET functions to Python. **WARNING** Pythonnet provides the `clr` module. If you attempt to `pip install` it you will end up with the `color` module which will be nice, but not what is needed here.
