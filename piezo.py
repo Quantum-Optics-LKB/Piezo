@@ -33,8 +33,8 @@ clr.AddReference("Thorlabs.MotionControl.TCube.DCServoCLI")
 clr.AddReference("Thorlabs.MotionControl.IntegratedStepperMotorsCLI")
 clr.AddReference("Thorlabs.MotionControl.Controls")
 
-from System import String
-from System import Decimal
+from System import String, Decimal
+# from System import Decimal
 import System.Collections
 from System.Collections import *
 # Generic device manager
@@ -183,13 +183,13 @@ class K10CR1:
         :param float pos: Position
         :param float timeout: Timeout in ms to do the move
         :return: reached position
-        :rtype: float 
-        
+        :rtype: float
+
         """
         self.device.MoveTo(Decimal(pos), int(timeout))
         print(f"Device position is: { self.device.Position } °.")
         return self.device.Position
-        
+
     def get_position(self):
         """Returns the actual position
 
@@ -339,7 +339,7 @@ class TDC001:
         """
         self.device.MoveTo(Decimal(pos), int(timeout))
         print(f"Device position is: { self.device.Position } °.")
-        
+
     def get_position(self):
         """Returns the actual position
 
@@ -574,7 +574,7 @@ class BPC:
 class TIM101:
 
     def __init__(self, serial: str = None):
-        """Instantiates a PiezoTIM object to control piezo mirror screws
+        """Instantiates a TIM101 object to control piezo mirror screws
 
         :param str serial: Piezo serial number
         :return: PiezoScrew object
