@@ -3,7 +3,7 @@
 """
     Created on Fri Mar 29 11:00:03 2019
 
-    @author: tangui
+    @author: Tangui ALADJIDI
 
     Uses Kinesis to control Thorlabs devices
 
