@@ -186,9 +186,9 @@ class K10CR1:
         :rtype: float
 
         """
-        # self.device.MoveTo(Decimal(pos), int(timeout))
-        self.device.SetMoveAbsolutePosition(Decimal(pos))
-        self.device.MoveAbsolute(int(timeout))
+        self.device.MoveTo(Decimal(pos), int(timeout))
+        # self.device.SetMoveAbsolutePosition(Decimal(pos))
+        # self.device.MoveAbsolute(int(timeout))
         print(f"Device position is: { self.device.Position } °.")
         return self.device.Position
 
