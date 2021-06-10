@@ -189,8 +189,10 @@ class K10CR1:
         self.device.MoveTo(Decimal(pos), int(timeout))
         # self.device.SetMoveAbsolutePosition(Decimal(pos))
         # self.device.MoveAbsolute(int(timeout))
-        print(f"Device position is: { self.device.Position } °.")
-        return self.device.Position
+        sys.stdout.write(f"\rDevice position is: { self.device.Position } °.")
+        # WARNING : This is ugly ! System decimal separator needs to be set to
+        # "." for it to work !!! 
+        return float(str(self.device.Position))
 
     def get_position(self):
         """Returns the actual position
