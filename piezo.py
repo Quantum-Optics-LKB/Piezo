@@ -30,6 +30,8 @@ clr.AddReference("Thorlabs.MotionControl.GenericPiezoCLI")
 clr.AddReference("Thorlabs.MotionControl.GenericMotorCLI")
 clr.AddReference("Thorlabs.MotionControl.TCube.InertialMotorCLI")
 clr.AddReference("Thorlabs.MotionControl.TCube.DCServoCLI")
+clr.AddReference("Thorlabs.MotionControl.KCube.InertialMotorCLI")
+clr.AddReference("Thorlabs.MotionControl.KCube.DCServoCLI")
 clr.AddReference("Thorlabs.MotionControl.IntegratedStepperMotorsCLI")
 clr.AddReference("Thorlabs.MotionControl.Controls")
 
@@ -55,6 +57,7 @@ from Thorlabs.MotionControl.IntegratedStepperMotorsCLI import *
 
 
 class K10CR1:
+
 
     def __init__(self, serial: str = None):
         """Instantiates a K10CR1 object to control cage rotator
@@ -155,6 +158,7 @@ class K10CR1:
         if self.__taskID > 0 and self.__taskID == taskID:
             self.__taskComplete = True
 
+
     def home(self, timeout: float = 60e3) -> bool:
         """Homes the device to its center position. Might take some time.
 
@@ -192,7 +196,7 @@ class K10CR1:
         self.device.MoveTo(Decimal(pos), int(timeout))
         # self.device.SetMoveAbsolutePosition(Decimal(pos))
         # self.device.MoveAbsolute(int(timeout))
-        sys.stdout.write(f"\rDevice position is: { self.device.Position } °.")
+        sys.stdout.write(f"\rDevice position is: {self.device.Position} °.")
         # WARNING : This is ugly ! System decimal separator needs to be set to
         # "." for it to work !!! 
         return float(str(self.device.Position))
@@ -206,7 +210,6 @@ class K10CR1:
         """
         print(f"Device position is: { self.device.Position } °.")
         return self.device.Status.Position
-
 
 
 class TDC001:
@@ -356,7 +359,6 @@ class TDC001:
         """
         print(f"Device position is: { self.device.Position } °.")
         return self.device.Status.Position
-
 
 
 class BPC:
@@ -829,6 +831,7 @@ class TIM101:
         self.device.StopPolling()
         self.device.Disconnect(True)
 
+
 class KIM101:
 
     def __init__(self, serial: str = None):
@@ -864,7 +867,7 @@ class KIM101:
                 DeviceManagerCLI.BuildDeviceList()
                 device_list = DeviceManagerCLI.GetDeviceList(KCubeInertialMotor.DevicePrefix_KIM101)
                 if len(device_list) == 0:
-                    print("Error : No TCube motor found !")
+                    print("Error : No KCube motor found !")
                 elif len(device_list) == 1:
                     print("Only one device found, attempting to connect to " +
                           f"device {device_list[0]}")
@@ -1057,19 +1060,153 @@ class KIM101:
         else:
             try:
                 if channel == 1:
-                    self.device.MoveTo(self.channel1, pos, 120000)
+                    self.device.MoveTo(self.channel1, int(pos), 2000)
                 elif channel == 2:
-                    self.device.MoveTo(self.channel2, pos, 120000)
+                    self.device.MoveTo(self.channel2, int(pos), 2000)
                 elif channel == 3:
-                    self.device.MoveTo(self.channel3, pos, 120000)
+                    self.device.MoveTo(self.channel3, int(pos), 2000)
                 elif channel == 4:
-                    self.device.MoveTo(self.channel4, pos, 120000)
+                    self.device.MoveTo(self.channel4, int(pos), 2000)
             except Exception:
                 print("ERROR : Failed to move")
                 print(traceback.format_exc())
             curr_pos = self.get_position(channel)
-            sys.stdout.write(f"\r Moved to : {curr_pos}")
+            sys.stdout.write(f"\r Moved to : {curr_pos:06d}")
             return curr_pos
+
+    def disconnect(self):
+        """
+        Wrapper function to disconnect the object. Important for tidyness and to avoid conflicts with
+        Kinesis
+        :return: None
+        """
+        self.device.StopPolling()
+        self.device.Disconnect(True)
+
+
+class KDC101:
+    def __init__(self, serial: str = None, stage_name: str = 'Z825'):
+        """Instantiates a TIM101 object to control piezo mirror screws
+
+        :param str serial: Piezo serial number
+        :param str stage_name: Stage type that is connected to the controller
+        this allows conversion of the move units to real units.
+        :return: PiezoScrew object
+        :rtype: PiezoScrew
+
+        """
+        if serial is not None:
+            DeviceManagerCLI.BuildDeviceList()
+            device_list = DeviceManagerCLI.GetDeviceList(
+                KCubeDCServo.DevicePrefix)
+            if len(device_list) == 0 or serial not in device_list:
+                print("Error : ")
+            try:
+                self.serial = serial  # SN of the Thorlabs Nano stage
+                if len(device_list) == 0:
+                    print("Error : No TCube motor found !")
+                else:
+                    if serial in device_list:
+                        self.attempt_connection(serial)
+                    else:
+                        print("Error : Did not find the specified motor ")
+                        for dev in device_list:
+                            print(f"Device found, serial {dev}")
+            except Exception:
+                print("ERROR")
+                print(traceback.format_exc())
+        else:
+            try:
+                DeviceManagerCLI.BuildDeviceList()
+                device_list = DeviceManagerCLI.GetDeviceList(KCubeDCServo.DevicePrefix)
+                if len(device_list) == 0:
+                    print("Error : No TCube motor found !")
+                elif len(device_list) == 1:
+                    print("Only one device found, attempting to connect to " +
+                          f"device {device_list[0]}")
+                    self.attempt_connection(device_list[0])
+                else:
+                    for counter, dev in enumerate(device_list):
+                        print(f"Device found, serial {dev} ({counter})")
+                    choice = input("Choice (number between 0 and" +
+                                   f" {len(device_list)-1})? ")
+                    choice = int(choice)
+                    self.attempt_connection(device_list[choice])
+            except Exception:
+                print("ERROR")
+                print(traceback.format_exc())
+        self.configuration = self.device.LoadMotorConfiguration(self.serial)
+        # for real world units conversion
+        self.configuration.DeviceSettingsName = stage_name
+        self.configuration.UpdateCurrentConfiguration()
+        # velparams = self.device.GetVelocityParams()
+        # velparams.MaxVelocity = Decimal(4.0)
+        # self.device.SetVelocityParams(velparams)
+        # set default settings 
+        self.settings = self.device.MotorDeviceSettings
+        self.device.SetSettings(self.settings, True, True)
+        # velparams = self.device.GetVelocityParams()
+        # print(velparams.MaxVelocity)
+
+
+    def attempt_connection(self, serial):
+        """Generic connection attempt method. Will try to connect to specified
+        serial number after device lists have been built. Starts all relevant
+        routines as polling / command listeners ...
+
+        :param str serial: Serial number
+        :return: None
+
+        """
+        try:
+            self.device = KCubeDCServo.CreateKCubeDCServo(serial)
+            self.device.Connect(serial)
+            timeout = 0
+            while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
+                self.device.WaitForSettingsInitialized(500)
+                timeout += 1
+            self.device.StartPolling(250)
+            time.sleep(0.5)
+            self.device.EnableDevice()
+            self.device_info = self.device.GetDeviceInfo()
+            print("Success ! Connected to KCube motor" +
+                  f" {self.device_info.SerialNumber}" +
+                  f" {self.device_info.Name}")
+            self.serial = serial
+        except Exception:
+            print("ERROR : Could not connect to the device")
+            print(traceback.format_exc())
+
+    def home(self, timeout: float = 60e3) -> bool:
+        """Homes the device to its center position. Might take some time.
+
+        :param float timeout: Timeout of the movement.
+        :return bool isHomed: If the device is homed
+
+        """
+        try:
+            self.device.Home(int(timeout))
+            print("Device homed !")
+        except Exception:
+            print("ERROR : Could not home the device")
+            print(traceback.format_exc())
+
+    def move_to(self, pos: float, timeout: float = 60e3):
+        """Simple move
+
+        :param float pos: Position
+        :param float timeout: Timeout in ms to do the move
+        :return: reached position
+        :rtype: float
+
+        """
+        self.device.MoveTo(Decimal(pos), int(timeout))
+        # self.device.SetMoveAbsolutePosition(Decimal(pos))
+        # self.device.MoveAbsolute(int(timeout))
+        sys.stdout.write(f"\rDevice position is: {self.device.Position} mm.")
+        # WARNING : This is ugly ! System decimal separator needs to be set to
+        # "." for it to work !!! 
+        return float(str(self.device.Position))
 
     def disconnect(self):
         """
