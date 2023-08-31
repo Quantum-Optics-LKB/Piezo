@@ -15,7 +15,6 @@
 
 import clr
 import sys
-import os
 import time
 import numpy as np
 import traceback
@@ -889,13 +888,13 @@ class KIM101:
         self.channel3 = InertialMotorStatus.MotorChannels.Channel3
         self.channel4 = InertialMotorStatus.MotorChannels.Channel4
         # set default settings StepRate and StepAcceleration
-        self.settings.Drive.Channel(self.channel1).StepRate = 500
+        self.settings.Drive.Channel(self.channel1).StepRate = 2000
         self.settings.Drive.Channel(self.channel1).StepAcceleration = 100000
-        self.settings.Drive.Channel(self.channel2).StepRate = 500
+        self.settings.Drive.Channel(self.channel2).StepRate = 2000
         self.settings.Drive.Channel(self.channel2).StepAcceleration = 100000
-        self.settings.Drive.Channel(self.channel3).StepRate = 500
+        self.settings.Drive.Channel(self.channel3).StepRate = 2000
         self.settings.Drive.Channel(self.channel3).StepAcceleration = 100000
-        self.settings.Drive.Channel(self.channel4).StepRate = 500
+        self.settings.Drive.Channel(self.channel4).StepRate = 2000
         self.settings.Drive.Channel(self.channel4).StepAcceleration = 100000
         self.device.SetSettings(self.settings, True, True)
         self.zero()
@@ -1047,11 +1046,12 @@ class KIM101:
                 pos = self.device.GetPosition(self.channel4)
             return pos
 
-    def move_to(self, channel: int = 1, pos: int = 0) -> int:
+    def move_to(self, channel: int = 1, pos: int = 0, timeout: int = 2000) -> int:
         """
         Moves the piezo to a specified position
         :param channel: Channel number
         :param pos: Position (int)
+        :param timeout: Timeout in ms defaults to 2000
         :return: Current Position
         :rtype: int
         """
@@ -1060,13 +1060,13 @@ class KIM101:
         else:
             try:
                 if channel == 1:
-                    self.device.MoveTo(self.channel1, int(pos), 2000)
+                    self.device.MoveTo(self.channel1, int(pos), int(timeout))
                 elif channel == 2:
-                    self.device.MoveTo(self.channel2, int(pos), 2000)
+                    self.device.MoveTo(self.channel2, int(pos), int(timeout))
                 elif channel == 3:
-                    self.device.MoveTo(self.channel3, int(pos), 2000)
+                    self.device.MoveTo(self.channel3, int(pos), int(timeout))
                 elif channel == 4:
-                    self.device.MoveTo(self.channel4, int(pos), 2000)
+                    self.device.MoveTo(self.channel4, int(pos), int(timeout))
             except Exception:
                 print("ERROR : Failed to move")
                 print(traceback.format_exc())
@@ -1209,6 +1209,7 @@ class KDC101:
         return float(str(self.device.Position))
 
     def disconnect(self):
+
         """
         Wrapper function to disconnect the object. Important for tidyness and to avoid conflicts with
         Kinesis
@@ -1216,3 +1217,135 @@ class KDC101:
         """
         self.device.StopPolling()
         self.device.Disconnect(True)
+
+
+class LTS:
+   
+    def __init__(self, serial: str = None):
+        """Instantiates a K10CR1 object to control cage rotator
+
+        :param str serial: Serial number
+        :return: K10CR1 object
+
+        """
+        if serial is not None:
+            try:
+                DeviceManagerCLI.BuildDeviceList()
+                device_list = DeviceManagerCLI.GetDeviceList(LongTravelStage.DevicePrefix)
+                if len(device_list) == 0:
+                    print("Error : No K10CR1 motor found !")
+                else:
+                    if serial in device_list:
+                        self.attempt_connection(serial)
+                    else:
+                        print("Error : Did not find the specified motor ")
+                        for dev in device_list:
+                            print(f"Device found, serial {dev}")
+            except Exception:
+                print("ERROR")
+                print(traceback.format_exc())
+        else:
+            try:
+                DeviceManagerCLI.BuildDeviceList()
+                device_list = DeviceManagerCLI.GetDeviceList(LongTravelStage.DevicePrefix)
+                if len(device_list) == 0:
+                    print("Error : No K10CR1 motor found !")
+                elif len(device_list) == 1:
+                    print("Only one device found, attempting to connect to " +
+                          f"device {device_list[0]}")
+                    self.attempt_connection(device_list[0])
+                else:
+                    for counter, dev in enumerate(device_list):
+                        print(f"Device found, serial {dev} ({counter})")
+                    choice = input("Choice (number between 0 and" +
+                                   f" {len(device_list)-1})? ")
+                    choice = int(choice)
+                    self.attempt_connection(device_list[choice])
+            except Exception:
+                print("ERROR")
+                print(traceback.format_exc())
+        self.configuration = self.device.LoadMotorConfiguration(self.serial)
+        self.settings = self.device.MotorDeviceSettings
+        # Sets the velocities and acceleration to their maximum values
+        velParams = self.device.GetVelocityParams()
+        velParams.Acceleration = Decimal(10)
+        velParams.MaxVelocity = Decimal(15)
+        velParams.MinVelocity = Decimal(0)
+        self.device.SetVelocityParams(velParams)
+
+    def attempt_connection(self, serial: str):
+        """Generic connection attempt method. Will try to connect to specified
+        serial number after device lists have been built. Starts all relevant
+        routines as polling / command listeners ...
+
+        :param str serial: Serial number
+        :return: None
+
+        """
+        try:
+            self.device = LongTravelStage.CreateLongTravelStage(serial)
+            self.device.Connect(serial)
+            timeout = 0
+            while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
+                self.device.WaitForSettingsInitialized(500)
+                timeout += 1
+            self.device.StartPolling(250)
+            time.sleep(0.5)
+            self.device.EnableDevice()
+            self.device_info = self.device.GetDeviceInfo()
+            print("Success ! Connected to LTS " +
+                  f" {self.device_info.SerialNumber}" +
+                  f" {self.device_info.Name}")
+            self.serial = serial
+        except Exception:
+            print("ERROR : Could not connect to the device")
+            print(traceback.format_exc())
+
+    def disconnect(self):
+        """Disconnects the device. Important for tidyness and to avoid
+        references being kept to a dead object.
+
+        :return: None
+
+        """
+        self.device.StopPolling()
+        self.device.Disconnect(True)
+
+    def home(self, timeout: float = 60e3) -> bool:
+        """Homes the device to its center position. Might take some time.
+
+        :param float timeout: Timeout of the movement.
+        :return bool isHomed: If the device is homed
+
+        """
+        try:
+            self.device.Home(int(timeout))
+            print("Device homed !")
+        except Exception:
+            print("ERROR : Could not home the device")
+            print(traceback.format_exc())
+
+    def move_to(self, pos: float, timeout: float = 60e3):
+        """Simple move
+
+        :param float pos: Position
+        :param float timeout: Timeout in ms to do the move
+        :return: reached position
+        :rtype: float
+
+        """
+        self.device.MoveTo(Decimal(pos), int(timeout))
+        sys.stdout.write(f"\rDevice position is: {self.device.Position} mm.")
+        # WARNING : This is ugly ! System decimal separator needs to be set to
+        # "." for it to work !!! 
+        return float(str(self.device.Position))
+
+    def get_position(self):
+        """Returns the actual position
+
+        :return: Position
+        :rtype: float
+
+        """
+        print(f"Device position is: { self.device.Position } °.")
+        return self.device.Status.Position
