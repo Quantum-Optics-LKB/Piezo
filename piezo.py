@@ -220,6 +220,8 @@ class TDC001:
         :return: TDC001 object
 
         """
+        self.short_name = None # Short name of actuator, assigned later if connection successful
+
         if serial is not None:
             try:
                 DeviceManagerCLI.BuildDeviceList()
@@ -258,6 +260,7 @@ class TDC001:
                 print(traceback.format_exc())
         self.configuration = self.device.LoadMotorConfiguration(self.serial)
         self.settings = self.device.MotorDeviceSettings
+        print(f"{self.short_name} | Configured for {self.configuration.DeviceSettingsName} stage")
         # do we home the device upon initialization ?
         # for task completion
         self.__taskID = 0
@@ -283,9 +286,11 @@ class TDC001:
             time.sleep(0.5)
             self.device.EnableDevice()
             self.device_info = self.device.GetDeviceInfo()
-            print("Success ! Connected to TCube motor" +
-                  f" {self.device_info.SerialNumber}" +
-                  f" {self.device_info.Name}")
+            self.short_name = self.device_info.Name
+            print("Success ! Connected to TCube motor:" +
+                  f" {self.device_info.Description}" + 
+                  f", S/N: {self.device_info.SerialNumber}"
+                  )
             self.serial = serial
         except Exception:
             print("ERROR : Could not connect to the device")
@@ -319,11 +324,12 @@ class TDC001:
         :return bool isHomed: If the device is homed
 
         """
+        print(f"{self.short_name} | Homing device...")
         try:
             self.device.Home(int(timeout))
-            print("Device homed !")
+            print(f"{self.short_name} | Device homed !")
         except Exception:
-            print("ERROR : Could not home the device")
+            print(f"{self.short_name} | ERROR : Could not home the device")
             print(traceback.format_exc())
         # self.__taskComplete = false
         # Action = getattr(System, "Action`1")
@@ -346,8 +352,9 @@ class TDC001:
         :rtype: Nonetype
 
         """
+        print(f"{self.short_name} | Moving to {pos}°")
         self.device.MoveTo(Decimal(pos), int(timeout))
-        print(f"Device position is: { self.device.Position } °.")
+        print(f"{self.short_name} | Device position: { self.device.Position }°")
 
     def get_position(self):
         """Returns the actual position
@@ -356,7 +363,7 @@ class TDC001:
         :rtype: float
 
         """
-        print(f"Device position is: { self.device.Position } °.")
+        print(f"{self.short_name} | Device position: { self.device.Position }°")
         return self.device.Status.Position
 
 
