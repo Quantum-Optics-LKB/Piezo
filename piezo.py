@@ -344,17 +344,18 @@ class TDC001:
         #     waittime = time.time()-t0
 
     def move_to(self, pos: float, timeout: float = 60e3):
-        """Simple move
+        """Simple move, returns final position in device coordinates
 
         :param float pos: Position
         :param float timeout: Timeout in ms to do the move
         :return: None
-        :rtype: Nonetype
+        :rtype: float
 
         """
         print(f"{self.short_name} | Moving to {pos}°")
         self.device.MoveTo(Decimal(pos), int(timeout))
         print(f"{self.short_name} | Device position: { self.device.Position }°")
+        return float(str(self.device.Position))
 
     def get_position(self):
         """Returns the actual position
