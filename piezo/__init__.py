@@ -17,3 +17,6 @@ from .K10CR1 import *
 from .TDC001 import *
 from .TIM101 import *
 from .BPC import *
+from .KIM101 import *
+from .KDC101 import *
+from .LTS import *

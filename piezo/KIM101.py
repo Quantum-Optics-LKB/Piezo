@@ -4,39 +4,37 @@ import sys
 import time
 import traceback
 from .GenericDevice import GenericDevice
-
 # Add references so Python can see .Net
 clr.AddReference("System")
-clr.AddReference("Thorlabs.MotionControl.GenericPiezoCLI")
 clr.AddReference("Thorlabs.MotionControl.GenericMotorCLI")
-clr.AddReference("Thorlabs.MotionControl.TCube.InertialMotorCLI")
-clr.AddReference("Thorlabs.MotionControl.TCube.DCServoCLI")
+clr.AddReference("Thorlabs.MotionControl.KCube.InertialMotorCLI")
+clr.AddReference("Thorlabs.MotionControl.KCube.DCServoCLI")
 clr.AddReference("Thorlabs.MotionControl.IntegratedStepperMotorsCLI")
 
-#TODO Maybe useless imports, but this needs to be checked.
 import System.Collections
 from System.Collections import *
 
-from Thorlabs.MotionControl.GenericPiezoCLI import *
 from Thorlabs.MotionControl.GenericMotorCLI import *
 
-from Thorlabs.MotionControl.TCube.InertialMotorCLI import *
-from Thorlabs.MotionControl.TCube.DCServoCLI import *
+from Thorlabs.MotionControl.KCube.InertialMotorCLI import *
+from Thorlabs.MotionControl.KCube.DCServoCLI import *
 
 from Thorlabs.MotionControl.IntegratedStepperMotorsCLI import *
 
-class TIM101(GenericDevice):
 
-    def __init__(self, serial: str = None) -> object:
-        """Instantiates a TIM101 object to control piezo mirror screws
+class KIM101(GenericDevice):
+
+    def __init__(self, serial: str = None) -> GenericDevice:
+        """Instantiates a TIM101 object to control piezo screws
 
         :param str serial: Piezo serial number
         :return: PiezoScrew object
         :rtype: PiezoScrew
 
         """
-        self.device_prefix = TCubeInertialMotor.DevicePrefix
+        self.device_prefix = KCubeInertialMotor.DevicePrefix_KIM101
         super().__init__(serial=serial, device_prefix=self.device_prefix)
+        self.attempt_connection()
         self.configuration = self.device.GetInertialMotorConfiguration(self.serial)
         self.settings = ThorlabsInertialMotorSettings.GetSettings(self.configuration)
         self.channel1 = InertialMotorStatus.MotorChannels.Channel1
@@ -44,19 +42,19 @@ class TIM101(GenericDevice):
         self.channel3 = InertialMotorStatus.MotorChannels.Channel3
         self.channel4 = InertialMotorStatus.MotorChannels.Channel4
         # set default settings StepRate and StepAcceleration
-        self.settings.Drive.Channel(self.channel1).StepRate = 500
+        self.settings.Drive.Channel(self.channel1).StepRate = 2000
         self.settings.Drive.Channel(self.channel1).StepAcceleration = 100000
-        self.settings.Drive.Channel(self.channel2).StepRate = 500
+        self.settings.Drive.Channel(self.channel2).StepRate = 2000
         self.settings.Drive.Channel(self.channel2).StepAcceleration = 100000
-        self.settings.Drive.Channel(self.channel3).StepRate = 500
+        self.settings.Drive.Channel(self.channel3).StepRate = 2000
         self.settings.Drive.Channel(self.channel3).StepAcceleration = 100000
-        self.settings.Drive.Channel(self.channel4).StepRate = 500
+        self.settings.Drive.Channel(self.channel4).StepRate = 2000
         self.settings.Drive.Channel(self.channel4).StepAcceleration = 100000
         self.device.SetSettings(self.settings, True, True)
         self.zero()
 
-    def attempt_connection(self) -> None:
-        """Attempt connection to the device.
+    def attempt_connection(self):
+        """Attempt connection.
         
         Generic connection attempt method. Will try to connect to specified
         serial number after device lists have been built. Starts all relevant
@@ -64,7 +62,7 @@ class TIM101(GenericDevice):
 
         """
         try:
-            self.device = TCubeInertialMotor.CreateTCubeInertialMotor(self.serial)
+            self.device = KCubeInertialMotor.CreateKCubeInertialMotor(self.serial)
             self.device.Connect(self.serial)
             timeout = 0
             while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
@@ -74,7 +72,7 @@ class TIM101(GenericDevice):
             time.sleep(0.5)
             self.device.EnableDevice()
             self.device_info = self.device.GetDeviceInfo()
-            print("Success ! Connected to TCube motor" +
+            print("Success ! Connected to KCube motor" +
                   f" {self.device_info.SerialNumber}" +
                   f" {self.device_info.Name}")
         except Exception:
@@ -200,11 +198,12 @@ class TIM101(GenericDevice):
                 pos = self.device.GetPosition(self.channel4)
             return pos
 
-    def move_to(self, channel: int = 1, pos: int = 0) -> int:
+    def move_to(self, channel: int = 1, pos: int = 0, timeout: int = 2000) -> int:
         """
         Moves the piezo to a specified position
         :param channel: Channel number
         :param pos: Position (int)
+        :param timeout: Timeout in ms defaults to 2000
         :return: Current Position
         :rtype: int
         """
@@ -213,18 +212,16 @@ class TIM101(GenericDevice):
         else:
             try:
                 if channel == 1:
-                    self.device.MoveTo(self.channel1, pos, 120000)
+                    self.device.MoveTo(self.channel1, int(pos), int(timeout))
                 elif channel == 2:
-                    self.device.MoveTo(self.channel2, pos, 120000)
+                    self.device.MoveTo(self.channel2, int(pos), int(timeout))
                 elif channel == 3:
-                    self.device.MoveTo(self.channel3, pos, 120000)
+                    self.device.MoveTo(self.channel3, int(pos), int(timeout))
                 elif channel == 4:
-                    self.device.MoveTo(self.channel4, pos, 120000)
+                    self.device.MoveTo(self.channel4, int(pos), int(timeout))
             except Exception:
                 print("ERROR : Failed to move")
                 print(traceback.format_exc())
             curr_pos = self.get_position(channel)
-            sys.stdout.write(f"\r Moved to : {curr_pos}")
+            sys.stdout.write(f"\r Moved to : {curr_pos:06d}")
             return curr_pos
-
-    

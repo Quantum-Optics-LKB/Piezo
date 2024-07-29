@@ -24,7 +24,7 @@ from Thorlabs.MotionControl.GenericMotorCLI import *
 
 
 class BPC(GenericDevice):
-    def __init__(self, serial: str=None)-> object:
+    def __init__(self, serial: str=None)-> GenericDevice:
         """Instantiate a BPC object.
 
         This class is for controlling Thorlabs Benchtop Piezo Controllers with

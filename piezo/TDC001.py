@@ -26,7 +26,7 @@ from Thorlabs.MotionControl.IntegratedStepperMotorsCLI import *
 
 class TDC001(GenericDevice):
 
-    def __init__(self, serial: str = None):
+    def __init__(self, serial: str = None) -> GenericDevice:
         """Instantiates a TDC001 object to control piezo DC motor actuators
 
         :param str serial: Serial number
