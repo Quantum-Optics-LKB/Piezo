@@ -52,3 +52,11 @@ class GenericDevice:
         if self.serial not in device_list:
             raise ConnectionError("Device not found")
         
+    def disconnect(self):
+        """
+        Wrapper function to disconnect the object. Important for tidyness and to avoid conflicts with
+        Kinesis
+        :return: None
+        """
+        self.device.StopPolling()
+        self.device.Disconnect(True)

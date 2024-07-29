@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import clr
 import time
 import traceback
@@ -69,16 +71,6 @@ class TDC001(GenericDevice):
         except Exception:
             print("ERROR : Could not connect to the device")
             print(traceback.format_exc())
-
-    def disconnect(self):
-        """Disconnects the device. Important for tidyness and to avoid
-        references being kept to a dead object.
-
-        :return: None
-
-        """
-        self.device.StopPolling()
-        self.device.Disconnect(True)
 
     def __is_command_complete(self, taskID: int):
         """Private method to handle completion of tasks

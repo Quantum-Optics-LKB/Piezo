@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import clr
 import time
 import numpy as np

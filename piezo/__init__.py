@@ -15,3 +15,5 @@ from .GenericDevice import *
 from .piezo import *
 from .K10CR1 import *
 from .TDC001 import *
+from .TIM101 import *
+from .BPC import *
