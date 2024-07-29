@@ -72,7 +72,7 @@ class PDXC2(GenericDevice):
                   f", S/N: {self.device_info[0].SerialNumber}"
                   )
 
-            self.configuration = self.device.GetPDXC2Configuration(self.serial, DeviceConfiguration.DeviceSettingsUseOptionType.UseDeviceSettings)
+            self.configuration = self.device.GetPDXC2Configuration(self.serial, PDXC2Configuration.DeviceSettingsUseOptionType.UseDeviceSettings)
             self.settings = PDXC2Settings.GetSettings(self.configuration)
             self.device.SetSettings(self.settings, True, True)
 
@@ -216,12 +216,3 @@ class PDXC2(GenericDevice):
         self.update_position()
         print('Device homed.')
 
-    def disconnect(self):
-        """
-        Disconnects the device.
-        :return: None
-        """
-        self.device.DisableDevice()
-        self.device.StopPolling()
-        self.device.Disconnect(True)
-        print(f'Device {self.device_info[0].SerialNumber} disconnected.')
