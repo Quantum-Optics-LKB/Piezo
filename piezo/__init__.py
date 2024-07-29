@@ -12,7 +12,7 @@ __email__ = "tangui.aladjidi@lkb.upmc.fr"
 #TODO Find out if we can do the .NET imports here ? how does it pass down to
 # the inherited classes ? 
 from .GenericDevice import *
-from .piezo import *
+from .PDXC2 import *
 from .K10CR1 import *
 from .TDC001 import *
 from .TIM101 import *
