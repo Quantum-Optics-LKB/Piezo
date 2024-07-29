@@ -1,0 +1,4 @@
+numpy==2.0.1
+pylablib==1.4.3
+pythonnet==3.0.3
+thorlabs_apt_device==0.3.8

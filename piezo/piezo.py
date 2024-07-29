@@ -1,25 +1,18 @@
 # -*- coding: utf-8 -*-
 
-"""
-    Created on Fri Mar 29 11:00:03 2019
-
-    @author: Tangui ALADJID, Lucien BELZANE
-
-    Uses Kinesis to control Thorlabs devices
-
-    The classes volontarily copy and wrap existing objects of Thorlabs
-    .NET architecture to simplify it and bring useful objects to the
-    relevant level in the inheritance tree.
-
-"""
-
 import clr
 import sys
 import time
 import numpy as np
 import traceback
+# import ctypes
 
 # VERY NAUGHTY : TO BE FIXED !!!!
+# try:
+#     path = ctypes.util.find_library("Kinesis")
+# except FileNotFoundError:
+#     print("Error : Kinesis library not found")
+#     sys.path.append(r"C:\Program Files\Thorlabs\Kinesis")
 sys.path.append(r"C:\Program Files\Thorlabs\Kinesis")
 # Add references so Python can see .Net
 clr.AddReference("System")
@@ -35,7 +28,6 @@ clr.AddReference("Thorlabs.MotionControl.IntegratedStepperMotorsCLI")
 clr.AddReference("Thorlabs.MotionControl.Controls")
 
 from System import String, Decimal
-# from System import Decimal
 import System.Collections
 from System.Collections import *
 # Generic device manager
