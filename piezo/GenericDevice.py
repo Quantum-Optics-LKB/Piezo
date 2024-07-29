@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 import clr
 import sys
-import time
-import numpy as np
-import traceback
 from typing import Any
 # import ctypes
 
@@ -38,7 +35,10 @@ class GenericDevice:
         self.device_prefix = device_prefix
         # build the device list
         DeviceManagerCLI.BuildDeviceList()
-        device_list = DeviceManagerCLI.GetDeviceList()
+        if self.device_prefix is None:
+            device_list = DeviceManagerCLI.GetDeviceList()
+        else:
+            device_list = DeviceManagerCLI.GetDeviceList(self.device_prefix)
         if len(device_list) == 0:
             raise ConnectionError("No device found")
         else: 
