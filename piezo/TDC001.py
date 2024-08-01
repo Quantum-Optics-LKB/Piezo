@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import clr
 import time
 import traceback
+
+import clr
+
 from .GenericDevice import GenericDevice
 
 # Add references so Python can see .Net
@@ -13,19 +15,17 @@ clr.AddReference("Thorlabs.MotionControl.TCube.DCServoCLI")
 clr.AddReference("Thorlabs.MotionControl.IntegratedStepperMotorsCLI")
 clr.AddReference("Thorlabs.MotionControl.Controls")
 
-from System import Decimal
-import System.Collections
-from System.Collections import *
 
 # Generic device manager
-import Thorlabs.MotionControl.Controls
+from System import Decimal
+from System.Collections import *
 from Thorlabs.MotionControl.GenericMotorCLI import *
-from Thorlabs.MotionControl.TCube.InertialMotorCLI import *
-from Thorlabs.MotionControl.TCube.DCServoCLI import *
 from Thorlabs.MotionControl.IntegratedStepperMotorsCLI import *
+from Thorlabs.MotionControl.TCube.DCServoCLI import *
+from Thorlabs.MotionControl.TCube.InertialMotorCLI import *
+
 
 class TDC001(GenericDevice):
-
     def __init__(self, serial: str = None) -> GenericDevice:
         """Instantiates a TDC001 object to control piezo DC motor actuators
 
@@ -38,7 +38,9 @@ class TDC001(GenericDevice):
         self.attempt_connection()
         self.configuration = self.device.LoadMotorConfiguration(self.serial)
         self.settings = self.device.MotorDeviceSettings
-        print(f"{self.short_name} | Configured for {self.configuration.DeviceSettingsName} stage")
+        print(
+            f"{self.short_name} | Configured for {self.configuration.DeviceSettingsName} stage"
+        )
         # do we home the device upon initialization ?
         # for task completion
         self.__taskID = 0
@@ -46,7 +48,7 @@ class TDC001(GenericDevice):
 
     def attempt_connection(self):
         """Attempt connection to the device.
-        
+
         Generic connection attempt method. Will try to connect to specified
         serial number after device lists have been built. Starts all relevant
         routines as polling / command listeners ...
@@ -56,7 +58,7 @@ class TDC001(GenericDevice):
             self.device = TCubeDCServo.CreateTCubeDCServo(self.serial)
             self.device.Connect(self.serial)
             timeout = 0
-            while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
+            while not (self.device.IsSettingsInitialized()) and (timeout <= 10):
                 self.device.WaitForSettingsInitialized(500)
                 timeout += 1
             self.device.StartPolling(250)
@@ -64,10 +66,11 @@ class TDC001(GenericDevice):
             self.device.EnableDevice()
             self.device_info = self.device.GetDeviceInfo()
             self.short_name = self.device_info.Name
-            print("Success ! Connected to TCube motor:" +
-                  f" {self.device_info.Description}" + 
-                  f", S/N: {self.device_info.SerialNumber}"
-                  )
+            print(
+                "Success ! Connected to TCube motor:"
+                + f" {self.device_info.Description}"
+                + f", S/N: {self.device_info.SerialNumber}"
+            )
         except Exception:
             print("ERROR : Could not connect to the device")
             print(traceback.format_exc())
@@ -106,7 +109,8 @@ class TDC001(GenericDevice):
         # while not(self.__taskComplete) and waittime < timeout:
         #     time.sleep(500e-3)
         #     status = self.device.Status
-        #     sys.stdout.write(f"\rHoming device ... Position : {status.Position}")
+        #     sys.stdout.write(f"\rHoming device ...
+        # Position : {status.Position}")
         #     waittime = time.time()-t0
 
     def move_to(self, pos: float, timeout: float = 60e3):

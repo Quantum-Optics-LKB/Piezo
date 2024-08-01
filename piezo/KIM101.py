@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
-import clr
 import sys
 import time
 import traceback
+
+import clr
+
 from .GenericDevice import GenericDevice
+
 # Add references so Python can see .Net
 clr.AddReference("System")
 clr.AddReference("Thorlabs.MotionControl.GenericMotorCLI")
@@ -11,19 +14,14 @@ clr.AddReference("Thorlabs.MotionControl.KCube.InertialMotorCLI")
 clr.AddReference("Thorlabs.MotionControl.KCube.DCServoCLI")
 clr.AddReference("Thorlabs.MotionControl.IntegratedStepperMotorsCLI")
 
-import System.Collections
 from System.Collections import *
-
 from Thorlabs.MotionControl.GenericMotorCLI import *
-
-from Thorlabs.MotionControl.KCube.InertialMotorCLI import *
-from Thorlabs.MotionControl.KCube.DCServoCLI import *
-
 from Thorlabs.MotionControl.IntegratedStepperMotorsCLI import *
+from Thorlabs.MotionControl.KCube.DCServoCLI import *
+from Thorlabs.MotionControl.KCube.InertialMotorCLI import *
 
 
 class KIM101(GenericDevice):
-
     def __init__(self, serial: str = None) -> GenericDevice:
         """Instantiates a TIM101 object to control piezo screws
 
@@ -35,8 +33,12 @@ class KIM101(GenericDevice):
         self.device_prefix = KCubeInertialMotor.DevicePrefix_KIM101
         super().__init__(serial=serial, device_prefix=self.device_prefix)
         self.attempt_connection()
-        self.configuration = self.device.GetInertialMotorConfiguration(self.serial)
-        self.settings = ThorlabsInertialMotorSettings.GetSettings(self.configuration)
+        self.configuration = self.device.GetInertialMotorConfiguration(
+            self.serial
+        )
+        self.settings = ThorlabsInertialMotorSettings.GetSettings(
+            self.configuration
+        )
         self.channel1 = InertialMotorStatus.MotorChannels.Channel1
         self.channel2 = InertialMotorStatus.MotorChannels.Channel2
         self.channel3 = InertialMotorStatus.MotorChannels.Channel3
@@ -55,26 +57,30 @@ class KIM101(GenericDevice):
 
     def attempt_connection(self):
         """Attempt connection.
-        
+
         Generic connection attempt method. Will try to connect to specified
         serial number after device lists have been built. Starts all relevant
         routines as polling / command listeners ...
 
         """
         try:
-            self.device = KCubeInertialMotor.CreateKCubeInertialMotor(self.serial)
+            self.device = KCubeInertialMotor.CreateKCubeInertialMotor(
+                self.serial
+            )
             self.device.Connect(self.serial)
             timeout = 0
-            while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
+            while not (self.device.IsSettingsInitialized()) and (timeout <= 10):
                 self.device.WaitForSettingsInitialized(500)
                 timeout += 1
             self.device.StartPolling(250)
             time.sleep(0.5)
             self.device.EnableDevice()
             self.device_info = self.device.GetDeviceInfo()
-            print("Success ! Connected to KCube motor" +
-                  f" {self.device_info.SerialNumber}" +
-                  f" {self.device_info.Name}")
+            print(
+                "Success ! Connected to KCube motor"
+                + f" {self.device_info.SerialNumber}"
+                + f" {self.device_info.Name}"
+            )
         except Exception:
             print("ERROR : Could not connect to the device")
             print(traceback.format_exc())
@@ -88,7 +94,9 @@ class KIM101(GenericDevice):
         if channel not in [1, 2, 3, 4]:
             print("Error : Channel number must be between 1 and 4")
         else:
-            self.settings = ThorlabsInertialMotorSettings.GetSettings(self.configuration)
+            self.settings = ThorlabsInertialMotorSettings.GetSettings(
+                self.configuration
+            )
             if channel == 1:
                 return self.settings.Drive.Channel(self.channel1).StepRate
             elif channel == 2:
@@ -107,15 +115,25 @@ class KIM101(GenericDevice):
         if channel not in [1, 2, 3, 4]:
             print("Error : Channel number must be between 1 and 4")
         else:
-            self.settings = ThorlabsInertialMotorSettings.GetSettings(self.configuration)
+            self.settings = ThorlabsInertialMotorSettings.GetSettings(
+                self.configuration
+            )
             if channel == 1:
-                return self.settings.Drive.Channel(self.channel1).StepAcceleration
+                return self.settings.Drive.Channel(
+                    self.channel1
+                ).StepAcceleration
             elif channel == 2:
-                return self.settings.Drive.Channel(self.channel2).StepAcceleration
+                return self.settings.Drive.Channel(
+                    self.channel2
+                ).StepAcceleration
             elif channel == 3:
-                return self.settings.Drive.Channel(self.channe13).StepAcceleration
+                return self.settings.Drive.Channel(
+                    self.channe13
+                ).StepAcceleration
             elif channel == 4:
-                return self.settings.Drive.Channel(self.channel4).StepAcceleration
+                return self.settings.Drive.Channel(
+                    self.channel4
+                ).StepAcceleration
 
     def set_steprate(self, channel: int = 1, steprate: int = 500):
         """
@@ -127,7 +145,9 @@ class KIM101(GenericDevice):
         if channel not in [1, 2, 3, 4]:
             print("Error : Channel number must be between 1 and 4")
         else:
-            self.settings = ThorlabsInertialMotorSettings.GetSettings(self.configuration)
+            self.settings = ThorlabsInertialMotorSettings.GetSettings(
+                self.configuration
+            )
             if channel == 1:
                 self.settings.Drive.Channel(self.channel1).StepRate = steprate
             elif channel == 2:
@@ -148,15 +168,25 @@ class KIM101(GenericDevice):
         if channel not in [1, 2, 3, 4]:
             print("Error : Channel number must be between 1 and 4")
         else:
-            self.settings = ThorlabsInertialMotorSettings.GetSettings(self.configuration)
+            self.settings = ThorlabsInertialMotorSettings.GetSettings(
+                self.configuration
+            )
             if channel == 1:
-                self.settings.Drive.Channel(self.channel1).StepAcceleration = stepaccel
+                self.settings.Drive.Channel(
+                    self.channel1
+                ).StepAcceleration = stepaccel
             elif channel == 2:
-                self.settings.Drive.Channel(self.channel2).StepAcceleration = stepaccel
+                self.settings.Drive.Channel(
+                    self.channel2
+                ).StepAcceleration = stepaccel
             elif channel == 3:
-                self.settings.Drive.Channel(self.channel3).StepAcceleration = stepaccel
+                self.settings.Drive.Channel(
+                    self.channel3
+                ).StepAcceleration = stepaccel
             elif channel == 4:
-                self.settings.Drive.Channel(self.channel4).StepAcceleration = stepaccel
+                self.settings.Drive.Channel(
+                    self.channel4
+                ).StepAcceleration = stepaccel
             self.device.SetSettings(self.settings, True, True)
 
     def zero(self, channel: int = 1):
@@ -198,7 +228,9 @@ class KIM101(GenericDevice):
                 pos = self.device.GetPosition(self.channel4)
             return pos
 
-    def move_to(self, channel: int = 1, pos: int = 0, timeout: int = 2000) -> int:
+    def move_to(
+        self, channel: int = 1, pos: int = 0, timeout: int = 2000
+    ) -> int:
         """
         Moves the piezo to a specified position
         :param channel: Channel number

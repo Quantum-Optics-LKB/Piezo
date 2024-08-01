@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 
-import clr
 import time
-import numpy as np
 import traceback
+
+import clr
+import numpy as np
+
 from .GenericDevice import GenericDevice
+
 # Add references so Python can see .Net
 clr.AddReference("System")
 clr.AddReference("Thorlabs.MotionControl.DeviceManagerCLI")
@@ -12,19 +15,18 @@ clr.AddReference("Thorlabs.MotionControl.Benchtop.PiezoCLI")
 clr.AddReference("Thorlabs.MotionControl.GenericPiezoCLI")
 clr.AddReference("Thorlabs.MotionControl.GenericMotorCLI")
 
-from System import Decimal
 # Generic device manager
 import Thorlabs.MotionControl.Controls
-from Thorlabs.MotionControl.DeviceManagerCLI import *
-
+from System import Decimal
 from Thorlabs.MotionControl.Benchtop.Piezo import *
 from Thorlabs.MotionControl.Benchtop.PiezoCLI import *
-from Thorlabs.MotionControl.GenericPiezoCLI import *
+from Thorlabs.MotionControl.DeviceManagerCLI import *
 from Thorlabs.MotionControl.GenericMotorCLI import *
+from Thorlabs.MotionControl.GenericPiezoCLI import *
 
 
 class BPC(GenericDevice):
-    def __init__(self, serial: str=None)-> GenericDevice:
+    def __init__(self, serial: str = None) -> GenericDevice:
         """Instantiate a BPC object.
 
         This class is for controlling Thorlabs Benchtop Piezo Controllers with
@@ -36,9 +38,9 @@ class BPC(GenericDevice):
         self.device_prefix = BenchtopPiezo.DevicePrefix
         super().__init__(serial=serial, device_prefix=self.device_prefix)
         self.attempt_connection()
-        self.channel_x = self.device.GetChannel('1')
-        self.channel_y = self.device.GetChannel('2')
-        self.channel_z = self.device.GetChannel('3')
+        self.channel_x = self.device.GetChannel("1")
+        self.channel_y = self.device.GetChannel("2")
+        self.channel_z = self.device.GetChannel("3")
         self.pos_x = float(str(self.channel_x.GetPosition()))
         self.pos_y = float(str(self.channel_y.GetPosition()))
         self.pos_z = float(str(self.channel_z.GetPosition()))
@@ -49,17 +51,21 @@ class BPC(GenericDevice):
         self.step_x = float(str(self.channel_x.GetJogSteps().PositionStepSize))
         self.step_y = float(str(self.channel_y.GetJogSteps().PositionStepSize))
         self.step_z = float(str(self.channel_z.GetJogSteps().PositionStepSize))
-        print('Device initialization successful !')
+        print("Device initialization successful !")
         for info in self.device_info:
-            print(f'Device name : {info.Name}' +
-                  f', Serial Number : {info.SerialNumber}')
-        print(f'Number of channels : {self.device.ChannelCount}')
-        print(f'Device position : x = {self.pos_x} µm' +
-              f'y = {self.pos_y} µm, z = {self.pos_z} µm')
+            print(
+                f"Device name : {info.Name}"
+                + f", Serial Number : {info.SerialNumber}"
+            )
+        print(f"Number of channels : {self.device.ChannelCount}")
+        print(
+            f"Device position : x = {self.pos_x} µm"
+            + f"y = {self.pos_y} µm, z = {self.pos_z} µm"
+        )
 
     def attempt_connection(self):
         """Attempt to connect to the device.
-        
+
         Generic connection attempt method. Will try to connect to specified
         serial number after device lists have been built. Starts all relevant
         routines as polling / command listeners ...
@@ -115,7 +121,7 @@ class BPC(GenericDevice):
             self.channel_z.SetPosition(Decimal(tgt_z))
         self.update_position()
 
-    def sweep(self, axis: str = 'x', rg: float = 1.0):
+    def sweep(self, axis: str = "x", rg: float = 1.0):
         """
         Does a 1D sweep along one axis
         :param axis: 'x', 'y' or 'z' the axis of the sweep
@@ -124,32 +130,32 @@ class BPC(GenericDevice):
         """
 
         self.update_position()
-        if axis == 'x':
+        if axis == "x":
             Range = np.arange(0, rg, self.step_x)
-            start = self.pos_x-(rg/2)
+            start = self.pos_x - (rg / 2)
             origin = self.pos_x
             for x in Range:
-                self.move_to(start+x, None, None)
+                self.move_to(start + x, None, None)
                 # do something
                 time.sleep(0.5)
             self.move_to(origin, None, None)
             self.update_position()
-        if axis == 'y':
+        if axis == "y":
             Range = np.arange(0, rg, self.step_y)
-            start = self.pos_y-(rg/2)
+            start = self.pos_y - (rg / 2)
             origin = self.pos_y
             for y in Range:
-                self.move_to(None, start+y, None)
+                self.move_to(None, start + y, None)
                 # do something
                 time.sleep(0.5)
             self.move_to(origin, None, None)
             self.update_position()
-        if axis == 'z':
+        if axis == "z":
             Range = np.arange(0, rg, self.step_z)
-            start = self.pos_z-(rg/2)
+            start = self.pos_z - (rg / 2)
             origin = self.pos_z
             for z in Range:
-                self.move_to(None, None, start+z)
+                self.move_to(None, None, start + z)
                 # do something
                 time.sleep(0.5)
             self.move_to(origin, None, None)
@@ -165,46 +171,46 @@ class BPC(GenericDevice):
         """
 
         self.update_position()
-        if axis == 'xy':
+        if axis == "xy":
             Range0 = np.arange(0, rg0, self.step_x)
             Range1 = np.arange(0, rg1, self.step_y)
-            start_x = self.pos_x-(rg0/2)
-            start_y = self.pos_y-(rg1/2)
+            start_x = self.pos_x - (rg0 / 2)
+            start_y = self.pos_y - (rg1 / 2)
             origin0 = self.pos_x
             origin1 = self.pos_y
             for x in Range0:
                 for y in Range1:
-                    print(f"Move to : x = {start_x+x} / y = {start_y+y}")
-                    self.move_to(start_x+x, start_y+y, None)
+                    print(f"Move to : x = {start_x + x} / y = {start_y + y}")
+                    self.move_to(start_x + x, start_y + y, None)
                     # do something
                     time.sleep(0.5)
                     print(self.channel_x.GetPosition())
             self.move_to(origin0, origin1, None)
             self.update_position()
-        if axis == 'yz':
+        if axis == "yz":
             Range0 = np.arange(0, rg0, self.step_y)
             Range1 = np.arange(0, rg1, self.step_z)
-            start_y = self.pos_y - (rg0/2)
-            start_z = self.pos_z - (rg1/2)
+            start_y = self.pos_y - (rg0 / 2)
+            start_z = self.pos_z - (rg1 / 2)
             origin0 = self.pos_y
             origin1 = self.pos_z
             for y in Range0:
                 for z in Range1:
-                    self.move_to(None, start_y+y, start_z+z)
+                    self.move_to(None, start_y + y, start_z + z)
                     # do something
                     time.sleep(0.5)
             self.move_to(None, origin0, origin1)
             self.update_position()
-        if axis == 'xz':
+        if axis == "xz":
             Range0 = np.arange(0, rg0, self.step_x)
             Range1 = np.arange(0, rg1, self.step_z)
-            start_x = self.pos_x - (rg0/2)
-            start_z = self.pos_z - (rg1/2)
+            start_x = self.pos_x - (rg0 / 2)
+            start_z = self.pos_z - (rg1 / 2)
             origin0 = self.pos_x
             origin1 = self.pos_z
             for x in Range0:
                 for z in Range1:
-                    self.move_to(start_x+x, None, start_z+z)
+                    self.move_to(start_x + x, None, start_z + z)
                     # do something
                     time.sleep(0.5)
             self.move_to(origin0, None, origin1)

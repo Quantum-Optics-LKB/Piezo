@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import clr
 import time
 import traceback
+
+import clr
+
 from .GenericDevice import GenericDevice
 
 # Add references so Python can see .Net
@@ -11,20 +13,18 @@ clr.AddReference("Thorlabs.MotionControl.Benchtop.PiezoCLI")
 clr.AddReference("Thorlabs.MotionControl.GenericPiezoCLI")
 clr.AddReference("Thorlabs.MotionControl.Controls")
 
-import System.Collections
 from System.Collections import *
-# Generic device manager
-import Thorlabs.MotionControl.Controls
 
+# Generic device manager
 from Thorlabs.MotionControl.Benchtop.Piezo import *
-from Thorlabs.MotionControl.Benchtop.PiezoCLI import *
-from Thorlabs.MotionControl.GenericPiezoCLI import *
-from Thorlabs.MotionControl.Benchtop.PiezoCLI.PDXC2 import *
 from Thorlabs.MotionControl.Benchtop.Piezo.PDXC2 import *
+from Thorlabs.MotionControl.Benchtop.PiezoCLI import *
+from Thorlabs.MotionControl.Benchtop.PiezoCLI.PDXC2 import *
+from Thorlabs.MotionControl.GenericPiezoCLI import *
 from Thorlabs.MotionControl.GenericPiezoCLI.Piezo import PiezoControlModeTypes
 
-class PDXC2(GenericDevice):
 
+class PDXC2(GenericDevice):
     def __init__(self, serial: str = None, mode: int = 2) -> GenericDevice:
         """Instantiates a PDXC2 object to control piezo stage.
 
@@ -35,10 +35,10 @@ class PDXC2(GenericDevice):
         """
         self.device_prefix = InertiaStageController.DevicePrefix_PDXC2
         super().__init__(serial=serial, device_prefix=self.device_prefix)
-        self.attempt_connection(mode)  
+        self.attempt_connection(mode)
         self.position = self.get_position()
         self.control_mode = self.get_position_control_mode()
-        
+
     def attempt_connection(self, mode: int) -> None:
         """Attempt connection.
 
@@ -51,15 +51,17 @@ class PDXC2(GenericDevice):
 
         """
         try:
-            self.device = InertiaStageController.CreateInertiaStageController(self.serial)
+            self.device = InertiaStageController.CreateInertiaStageController(
+                self.serial
+            )
             self.device.Connect(self.serial)
             timeout = 0
-            while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
+            while not (self.device.IsSettingsInitialized()) and (timeout <= 10):
                 self.device.WaitForSettingsInitialized(500)
                 timeout += 1
                 if timeout == 10:
-                    raise RuntimeError('Settings failed to initialize.')
-                
+                    raise RuntimeError("Settings failed to initialize.")
+
             self.device.StartPolling(250)
             time.sleep(0.5)
             self.device.EnableDevice()
@@ -67,12 +69,16 @@ class PDXC2(GenericDevice):
             deviceInfo = [self.device.GetDeviceInfo()]
             self.device_info = deviceInfo
             self.device.EnableCommsListener
-            print("Success ! Connected to PDXC2 piezo:" +
-                  f" {self.device_info[0].Description}" + 
-                  f", S/N: {self.device_info[0].SerialNumber}"
-                  )
+            print(
+                "Success ! Connected to PDXC2 piezo:"
+                + f" {self.device_info[0].Description}"
+                + f", S/N: {self.device_info[0].SerialNumber}"
+            )
 
-            self.configuration = self.device.GetPDXC2Configuration(self.serial, PDXC2Configuration.DeviceSettingsUseOptionType.UseDeviceSettings)
+            self.configuration = self.device.GetPDXC2Configuration(
+                self.serial,
+                PDXC2Configuration.DeviceSettingsUseOptionType.UseDeviceSettings,
+            )
             self.settings = PDXC2Settings.GetSettings(self.configuration)
             self.device.SetSettings(self.settings, True, True)
 
@@ -82,7 +88,9 @@ class PDXC2(GenericDevice):
                 self.set_close_loop()
             else:
                 self.set_close_loop()
-                raise UserWarning('1 (OpenLoop) or 2 (CloseLoop) must be provided. CloseLoop mode set by default.')
+                msg = "1 (OpenLoop) or 2 (CloseLoop) must be provided."
+                msg += " CloseLoop mode set by default."
+                raise UserWarning(msg)
         except Exception:
             print("ERROR : Could not connect to the device")
             print(traceback.format_exc())
@@ -95,7 +103,7 @@ class PDXC2(GenericDevice):
         self.device.RequestCurrentPosition()
         self.position = self.device.GetCurrentPosition()
         return self.position
-    
+
     def update_position(self):
         """
         Updates the position saved in the piezo object
@@ -106,14 +114,14 @@ class PDXC2(GenericDevice):
     def get_position_control_mode(self):
         """
         Gets the actual position control mode (Open or Close loop).
-        :return: PiezoControlModeTypes 
+        :return: PiezoControlModeTypes
         """
         self.control_mode = self.device.GetPositionControlMode()
         return self.control_mode
-    
+
     def set_open_loop(self):
         """
-        Changes the position control mode to Open Loop. 
+        Changes the position control mode to Open Loop.
         :return: None
         """
         self.device.SetPositionControlMode(PiezoControlModeTypes.OpenLoop)
@@ -122,7 +130,7 @@ class PDXC2(GenericDevice):
 
     def set_close_loop(self):
         """
-        Changes the position control mode to Closed Loop. 
+        Changes the position control mode to Closed Loop.
         :return: None
         """
         self.device.SetPositionControlMode(PiezoControlModeTypes.CloseLoop)
@@ -137,7 +145,7 @@ class PDXC2(GenericDevice):
         """
         self.update_position()
         if self.get_position_control_mode() == PiezoControlModeTypes.CloseLoop:
-            print(f'Closed loop target position: {tgt}')
+            print(f"Closed loop target position: {tgt}")
             try:
                 self.device.SetClosedLoopTarget(tgt)
                 self.device.MoveStart()
@@ -145,7 +153,7 @@ class PDXC2(GenericDevice):
             except Exception:
                 print("Fail to move to the target position.")
         else:
-            print(f'Open loop target position: {tgt}')
+            print(f"Open loop target position: {tgt}")
             openloop_params = self.device.GetOpenLoopMoveParameters()
             openloop_params.set_StepSize(tgt)
             self.device.SetOpenLoopMoveParameters(openloop_params)
@@ -155,21 +163,21 @@ class PDXC2(GenericDevice):
                 timeout = 0
                 while tgt != new_position and timeout < 100:
                     new_position = self.get_position()
-                    timeout+=1
+                    timeout += 1
                 print(f"Device moved to position: {tgt}.")
             except Exception:
                 print("Fail to move to the target position.")
 
     def move_by(self, dist: float):
         """
-        Moves the piezo by a distance. 
+        Moves the piezo by a distance.
         :param dist: Float
         :return: None
         """
         self.update_position()
         if self.get_position_control_mode() == PiezoControlModeTypes.CloseLoop:
             try:
-                print(f'Closed loop distance set: {dist}')
+                print(f"Closed loop distance set: {dist}")
                 self.device.SetClosedLoopTarget(int(self.get_position()) + dist)
                 self.device.MoveStart()
                 print(f"Device moved by a distance: {dist}.")
@@ -177,12 +185,12 @@ class PDXC2(GenericDevice):
                 print(f"Fail to move by a distance: {dist}.")
                 print(err)
         else:
-            pass 
-            ##TODO 
-        
+            pass
+            # TODO
+
     def jog(self, direction: int = 1, stepsize: int = 10):
         """
-        Jog piezo. 
+        Jog piezo.
         :param: direction: int, stepsize: int
         :return: None
         """
@@ -196,7 +204,7 @@ class PDXC2(GenericDevice):
             jogparams.set_OpenLoopStepSize(stepsize)
             jogparams.set_Mode(JogParameters.JogModes.Step)
             self.device.SetJogParameters(jogparams)
-        
+
         if direction == 0:
             self.device.Jog(PDXC2TravelDirection(0), None)
         elif direction == 1:
@@ -204,15 +212,17 @@ class PDXC2(GenericDevice):
         elif direction == -1:
             self.device.Jog(PDXC2TravelDirection(2), None)
         else:
-            raise ValueError('Direction parameter must be 1 for forward, -1 for reverse or 0 for "undefined".')        
+            msg = "Direction parameter must be 1 for forward, -1 for reverse"
+            msg += ' or 0 for "undefined".'
+            raise ValueError(msg)
         self.update_position()
 
     def home(self):
         """
-        Moves the piezo to the home position. In open loop mode, it sets the 0 position to the current position.
+        Moves the piezo to the home position. In open loop mode, it sets the 0
+        position to the current position.
         :return: None
         """
         self.device.Home(int(60e3))
         self.update_position()
-        print('Device homed.')
-
+        print("Device homed.")

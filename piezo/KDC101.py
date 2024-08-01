@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 
-import clr
 import sys
 import time
 import traceback
+
+import clr
+
 from .GenericDevice import GenericDevice
 
 # Add references so Python can see .Net
@@ -18,25 +20,24 @@ clr.AddReference("Thorlabs.MotionControl.KCube.DCServoCLI")
 clr.AddReference("Thorlabs.MotionControl.IntegratedStepperMotorsCLI")
 clr.AddReference("Thorlabs.MotionControl.Controls")
 
-from System import Decimal
-import System.Collections
-from System.Collections import *
+
 # Generic device manager
-import Thorlabs.MotionControl.Controls
-
+from System import Decimal
+from System.Collections import *
 from Thorlabs.MotionControl.GenericMotorCLI import *
-
-from Thorlabs.MotionControl.KCube.InertialMotorCLI import *
-from Thorlabs.MotionControl.KCube.DCServoCLI import *
-
 from Thorlabs.MotionControl.IntegratedStepperMotorsCLI import *
+from Thorlabs.MotionControl.KCube.DCServoCLI import *
+from Thorlabs.MotionControl.KCube.InertialMotorCLI import *
+
 
 class KDC101(GenericDevice):
-    def __init__(self, serial: str = None, stage_name: str = 'Z825') -> GenericDevice:
+    def __init__(
+        self, serial: str = None, stage_name: str = "Z825"
+    ) -> GenericDevice:
         """Instantiate a KDC101 object.
 
-        This controls a KCube DC Servo motor. 
-        In order to retrieve the proper motor settings, you need to provide 
+        This controls a KCube DC Servo motor.
+        In order to retrieve the proper motor settings, you need to provide
         the stage name.
 
         Args:
@@ -56,16 +57,15 @@ class KDC101(GenericDevice):
         # velparams = self.device.GetVelocityParams()
         # velparams.MaxVelocity = Decimal(4.0)
         # self.device.SetVelocityParams(velparams)
-        # set default settings 
+        # set default settings
         self.settings = self.device.MotorDeviceSettings
         self.device.SetSettings(self.settings, True, True)
         # velparams = self.device.GetVelocityParams()
         # print(velparams.MaxVelocity)
 
-
     def attempt_connection(self) -> None:
         """Attempt connection.
-        
+
         Generic connection attempt method. Will try to connect to specified
         serial number after device lists have been built. Starts all relevant
         routines as polling / command listeners ...
@@ -75,16 +75,18 @@ class KDC101(GenericDevice):
             self.device = KCubeDCServo.CreateKCubeDCServo(self.serial)
             self.device.Connect(self.serial)
             timeout = 0
-            while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
+            while not (self.device.IsSettingsInitialized()) and (timeout <= 10):
                 self.device.WaitForSettingsInitialized(500)
                 timeout += 1
             self.device.StartPolling(250)
             time.sleep(0.5)
             self.device.EnableDevice()
             self.device_info = self.device.GetDeviceInfo()
-            print("Success ! Connected to KCube motor" +
-                  f" {self.device_info.SerialNumber}" +
-                  f" {self.device_info.Name}")
+            print(
+                "Success ! Connected to KCube motor"
+                + f" {self.device_info.SerialNumber}"
+                + f" {self.device_info.Name}"
+            )
         except Exception:
             print("ERROR : Could not connect to the device")
             print(traceback.format_exc())
@@ -117,5 +119,5 @@ class KDC101(GenericDevice):
         # self.device.MoveAbsolute(int(timeout))
         sys.stdout.write(f"\rDevice position is: {self.device.Position} mm.")
         # WARNING : This is ugly ! System decimal separator needs to be set to
-        # "." for it to work !!! 
+        # "." for it to work !!!
         return float(str(self.device.Position))

@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 
-import clr
 import sys
 import time
 import traceback
+
+import clr
+
 from .GenericDevice import GenericDevice
 
 # Add references so Python can see .Net
@@ -15,17 +17,13 @@ clr.AddReference("Thorlabs.MotionControl.IntegratedStepperMotorsCLI")
 clr.AddReference("Thorlabs.MotionControl.Controls")
 
 from System import Decimal
-import System.Collections
 from System.Collections import *
-import Thorlabs.MotionControl.Controls
-
-from Thorlabs.MotionControl.GenericPiezoCLI import *
 from Thorlabs.MotionControl.GenericMotorCLI import *
-
-from Thorlabs.MotionControl.KCube.InertialMotorCLI import *
-from Thorlabs.MotionControl.KCube.DCServoCLI import *
-
+from Thorlabs.MotionControl.GenericPiezoCLI import *
 from Thorlabs.MotionControl.IntegratedStepperMotorsCLI import *
+from Thorlabs.MotionControl.KCube.DCServoCLI import *
+from Thorlabs.MotionControl.KCube.InertialMotorCLI import *
+
 
 class K10CR1(GenericDevice):
     def __init__(self, serial: str = None) -> GenericDevice:
@@ -49,7 +47,7 @@ class K10CR1(GenericDevice):
 
     def attempt_connection(self):
         """Attempt connection to the device.
-        
+
         Generic connection attempt method. Will try to connect to specified
         serial number after device lists have been built. Starts all relevant
         routines as polling / command listeners ...
@@ -59,16 +57,18 @@ class K10CR1(GenericDevice):
             self.device = CageRotator.CreateCageRotator(self.serial)
             self.device.Connect(self.serial)
             timeout = 0
-            while not(self.device.IsSettingsInitialized()) and (timeout <= 10):
+            while not (self.device.IsSettingsInitialized()) and (timeout <= 10):
                 self.device.WaitForSettingsInitialized(500)
                 timeout += 1
             self.device.StartPolling(250)
             time.sleep(0.5)
             self.device.EnableDevice()
             self.device_info = self.device.GetDeviceInfo()
-            print("Success ! Connected to K10CR1 motor" +
-                  f" {self.device_info.SerialNumber}" +
-                  f" {self.device_info.Name}")
+            print(
+                "Success ! Connected to K10CR1 motor"
+                + f" {self.device_info.SerialNumber}"
+                + f" {self.device_info.Name}"
+            )
         except Exception:
             print("ERROR : Could not connect to the device")
             print(traceback.format_exc())
@@ -83,7 +83,6 @@ class K10CR1(GenericDevice):
         """
         if self.__taskID > 0 and self.__taskID == taskID:
             self.__taskComplete = True
-
 
     def home(self, timeout: float = 60e3) -> bool:
         """Homes the device to its center position. Might take some time.
@@ -124,7 +123,7 @@ class K10CR1(GenericDevice):
         # self.device.MoveAbsolute(int(timeout))
         sys.stdout.write(f"\rDevice position is: {self.device.Position} °.")
         # WARNING : This is ugly ! System decimal separator needs to be set to
-        # "." for it to work !!! 
+        # "." for it to work !!!
         return float(str(self.device.Position))
 
     def get_position(self):
