@@ -62,9 +62,10 @@ class GenericDevice:
         """
         Wrapper function to disconnect the object.
 
-        Important for tidyness and to avoid conflicts with
-        Kinesis
-        :return: None
+        This function is important for tidiness and to avoid conflicts with Kinesis.
+
+        Returns:
+            None
         """
         self.device.StopPolling()
         self.device.Disconnect(True)
