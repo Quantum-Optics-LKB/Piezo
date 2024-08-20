@@ -148,5 +148,5 @@ class TDC001(GenericDevice):
         if direction == 1:
             self.device.MoveJog(MotorDirection.Forward, None)
         elif direction == -1:
-            self.device.MoveJog(MotorDirection.Forward, None)
+            self.device.MoveJog(MotorDirection.Backward, None)
 
