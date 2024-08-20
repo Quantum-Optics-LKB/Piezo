@@ -134,4 +134,19 @@ class TDC001(GenericDevice):
 
         """
         print(f"{self.short_name} | Device position: { self.device.Position }°")
-        return self.device.Status.Position
+        return float(str(self.device.Position))
+    
+    def get_jog_stepsize(self):
+        return float(str(self.device.GetJogStepSize()))
+    
+    def set_jog_stepsize(self, stepsize):
+        self.device.SetJogStepSize(Decimal(stepsize))
+        params = self.device.GetJogParams()
+        return float(params.StepSize.ToString())
+    
+    def jog(self, direction: int = 1):
+        if direction == 1:
+            self.device.MoveJog(MotorDirection.Forward, None)
+        elif direction == -1:
+            self.device.MoveJog(MotorDirection.Forward, None)
+
