@@ -137,16 +137,32 @@ class TDC001(GenericDevice):
         return float(str(self.device.Position))
     
     def get_jog_stepsize(self):
+        """Returns the actual jog stepsize.
+
+        :return: stepsize
+        :rtype: float
+
+        """
         return float(str(self.device.GetJogStepSize()))
     
     def set_jog_stepsize(self, stepsize):
+        """Set the jog stepsize.
+
+        :param float stepsize: stepsize
+        :return: new stepsize
+        :rtype: float
+
+        """
         self.device.SetJogStepSize(Decimal(stepsize))
         params = self.device.GetJogParams()
         return float(params.StepSize.ToString())
     
     def jog(self, direction: int = 1):
+        """Jog the stage in the forward or backwward direction.
+
+        :param int direction: 1 for forward and -1 for backward.
+        """
         if direction == 1:
             self.device.MoveJog(MotorDirection.Forward, None)
         elif direction == -1:
             self.device.MoveJog(MotorDirection.Backward, None)
-
