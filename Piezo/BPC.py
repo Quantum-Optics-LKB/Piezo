@@ -10,6 +10,7 @@ from .GenericDevice import GenericDevice
 
 # Add references so Python can see .Net
 clr.AddReference("System")
+clr.AddReference("Thorlabs.MotionControl.Controls")
 clr.AddReference("Thorlabs.MotionControl.DeviceManagerCLI")
 clr.AddReference("Thorlabs.MotionControl.Benchtop.PiezoCLI")
 clr.AddReference("Thorlabs.MotionControl.GenericPiezoCLI")
