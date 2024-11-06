@@ -20,3 +20,5 @@ from .LTS import *
 from .PDXC2 import *
 from .TDC001 import *
 from .TIM101 import *
+from .TLPMX import *
+from .PMXXX import *
