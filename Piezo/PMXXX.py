@@ -1,9 +1,9 @@
 from datetime import datetime
 from ctypes import cdll,c_long, c_ulong, c_uint32,byref,create_string_buffer,c_bool,c_char_p,c_int,c_int16,c_double, sizeof, c_voidp
-from TLPMX import TLPMX
+from .TLPMX import TLPMX
 import time
 
-from TLPMX import TLPM_DEFAULT_CHANNEL
+from .TLPMX import TLPM_DEFAULT_CHANNEL
 
 class PMXXX():
     """Instantiates a PMXXX object to control thorlabs powermeter.
