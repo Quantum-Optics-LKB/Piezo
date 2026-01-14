@@ -35,9 +35,6 @@ class TIM101(GenericDevice):
         """
         self.device_prefix = TCubeInertialMotor.DevicePrefix
         super().__init__(serial=serial, device_prefix=self.device_prefix)
-        self.configuration = self.device.GetInertialMotorConfiguration(
-            self.serial
-        )
         self.settings = ThorlabsInertialMotorSettings.GetSettings(
             self.configuration
         )
@@ -68,6 +65,9 @@ class TIM101(GenericDevice):
         try:
             self.device = TCubeInertialMotor.CreateTCubeInertialMotor(
                 self.serial
+            )
+            self.configuration = self.device.GetInertialMotorConfiguration(
+            self.serial
             )
             self.device.Connect(self.serial)
             timeout = 0
